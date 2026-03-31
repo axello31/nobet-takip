@@ -510,7 +510,7 @@ async function init() {
   await load();
   if (PRELOADED_DATA && !months[PRELOADED_DATA.monthKey]) {
     months[PRELOADED_DATA.monthKey] = { label: PRELOADED_DATA.label, lists: { uzman: PRELOADED_DATA.shifts, asistan: [] } };
-    setTimeout(() => save().catch(()=>{}), 200);
+    setTimeout(() => save(), 200);
   }
   if (!activeMonth && Object.keys(months).length) {
     const ks = Object.keys(months).sort();
@@ -677,7 +677,7 @@ async function processFile(file, listType='uzman', forceShift=null) {
     hideParse();
     renderBar();
     showMonth(result.monthKey);
-    setTimeout(() => { save().catch(e => console.warn('Storage:', e)); }, 100);
+    setTimeout(() => { save(); }, 100);
 
   } catch(err) {
     hideParse();
