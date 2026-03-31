@@ -385,6 +385,11 @@ table.nt tr:last-child td { border-bottom:none; }
   <div class="modal" style="padding:0;overflow-y:auto;display:flex;flex-direction:column"><div id="docMC"></div></div>
 </div>
 
+<!-- ARŞİV MODAL -->
+<div class="overlay" id="archiveModal">
+  <div class="modal" style="padding:0;overflow-y:auto;max-width:480px;width:100%"><div id="archiveMC"></div></div>
+</div>
+
 <script>
 
 
@@ -538,7 +543,12 @@ function renderBar() {
   const bar=document.getElementById('monthBar');
   const ks=Object.keys(months).sort();
   if(!ks.length){bar.innerHTML='<span class="months-empty">Henüz ay yüklenmedi</span>';return;}
-  let h=ks.map(k=>`<div class="month-tab${k===activeMonth?' active':''}" onclick="showMonth('${k}')">${months[k].label}</div>`).join('');
+  // Sadece aktif ay göster; diğerleri arşivde
+  let h = activeMonth ? `<div class="month-tab active">${months[activeMonth].label}</div>` : '';
+  const otherKs = ks.filter(k=>k!==activeMonth);
+  if(otherKs.length>0){
+    h+=`<div class="month-tab" onclick="openArchive()" style="color:#ffb340;border-color:rgba(255,179,64,0.4)">📁 Arşiv (${otherKs.length})</div>`;
+  }
   if(activeMonth){
     // Liste tipi seçici
     const m=months[activeMonth];
@@ -557,6 +567,29 @@ function renderBar() {
   bar.innerHTML=h;
 }
 function setListType(t){activeListType=t;renderBar();renderAll();}
+
+function openArchive(){
+  const ks=Object.keys(months).sort().reverse();
+  const byYear={};
+  ks.forEach(k=>{const y=k.split('-')[0];if(!byYear[y])byYear[y]=[];byYear[y].push(k);});
+  let h='<div style="padding:20px">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">';
+  h+='<h3 style="font-size:16px;font-weight:700">📁 Arşiv</h3>';
+  h+='<button onclick="cm(\'archiveModal\')" style="background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;line-height:1">✕</button></div>';
+  Object.entries(byYear).sort((a,b)=>b[0]-a[0]).forEach(([year,yks])=>{
+    h+=`<div style="margin-bottom:16px">`;
+    h+=`<div style="font-size:11px;color:var(--text-muted);font-family:'IBM Plex Mono',monospace;margin-bottom:8px;letter-spacing:1px;text-transform:uppercase">${year}</div>`;
+    h+='<div style="display:flex;flex-wrap:wrap;gap:8px">';
+    yks.forEach(k=>{
+      const isActive=k===activeMonth;
+      h+=`<div class="month-tab${isActive?' active':''}" onclick="showMonth('${k}');cm('archiveModal')" style="${isActive?'':'cursor:pointer'}">${months[k].label}</div>`;
+    });
+    h+='</div></div>';
+  });
+  h+='</div>';
+  document.getElementById('archiveMC').innerHTML=h;
+  document.getElementById('archiveModal').classList.add('open');
+}
 
 function showMonth(k) {
   activeMonth=k; activeListType='hepsi'; renderBar();
