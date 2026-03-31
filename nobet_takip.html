@@ -1,0 +1,1319 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0e1a">
+<title>Acil Servis Nöbet Takip</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root {
+  --bg: #0a0e1a; --surface: #111827; --surface2: #1a2234; --border: #1e2d45;
+  --accent: #00d4ff; --accent2: #ff4d6d; --accent3: #39d98a; --accent4: #ffb340;
+  --text: #e2e8f0; --text-muted: #64748b;
+  --red-zone: rgba(255,77,109,0.15); --yellow-zone: rgba(255,179,64,0.15);
+  --green-zone: rgba(57,217,138,0.15); --blue-zone: rgba(0,212,255,0.15);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+body::before { content:''; position:fixed; inset:0; background-image:linear-gradient(rgba(0,212,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,0.03) 1px,transparent 1px); background-size:40px 40px; pointer-events:none; z-index:0; }
+.container { position:relative; z-index:1; max-width:1400px; margin:0 auto; padding:0 20px; }
+
+header { padding:16px 0; border-bottom:1px solid var(--border); background:linear-gradient(180deg,rgba(0,212,255,0.05) 0%,transparent 100%); }
+.header-inner { display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+.logo { display:flex; align-items:center; gap:12px; }
+.logo-icon { width:42px; height:42px; background:linear-gradient(135deg,var(--accent),#0088aa); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:20px; box-shadow:0 0 20px rgba(0,212,255,0.3); }
+.logo-text h1 { font-size:17px; font-weight:700; }
+.logo-text p { font-size:11px; color:var(--text-muted); font-family:'IBM Plex Mono',monospace; }
+.header-right { margin-left:auto; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+
+.month-bar { padding:10px 0; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px; overflow-x:auto; scrollbar-width:none; min-height:44px; }
+.month-bar::-webkit-scrollbar { display:none; }
+.month-tab { padding:5px 14px; border-radius:20px; border:1px solid var(--border); background:var(--surface); color:var(--text-muted); font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap; transition:all .2s; font-family:'IBM Plex Mono',monospace; }
+.month-tab:hover { border-color:var(--accent); color:var(--accent); }
+.month-tab.active { background:rgba(0,212,255,0.12); border-color:var(--accent); color:var(--accent); }
+.month-del { padding:5px 10px; border-radius:20px; border:1px solid rgba(255,77,109,0.3); background:var(--surface); color:var(--accent2); font-size:11px; font-weight:600; cursor:pointer; white-space:nowrap; transition:all .2s; }
+.month-del:hover { background:var(--red-zone); }
+.months-empty { font-size:12px; color:var(--text-muted); }
+
+.btn { padding:8px 16px; border-radius:8px; border:none; cursor:pointer; font-family:'IBM Plex Sans',sans-serif; font-size:13px; font-weight:600; transition:all .2s; display:inline-flex; align-items:center; gap:6px; }
+.btn-primary { background:var(--accent); color:#000; }
+.btn-primary:hover { background:#00b8d9; box-shadow:0 0 15px rgba(0,212,255,0.3); }
+.btn-secondary { background:var(--surface2); color:var(--text); border:1px solid var(--border); }
+.btn-secondary:hover { border-color:var(--accent); color:var(--accent); }
+.btn-sm { padding:6px 12px; font-size:12px; }
+
+.stats-bar { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; margin:16px 0; }
+.stat-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px 16px; position:relative; overflow:hidden; }
+.stat-card::after { content:''; position:absolute; top:0; left:0; right:0; height:2px; }
+.stat-card.blue::after { background:var(--accent); } .stat-card.red::after { background:var(--accent2); }
+.stat-card.green::after { background:var(--accent3); } .stat-card.yellow::after { background:var(--accent4); }
+.stat-label { font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:4px; }
+.stat-value { font-size:26px; font-weight:700; font-family:'IBM Plex Mono',monospace; }
+.stat-card.blue .stat-value { color:var(--accent); } .stat-card.red .stat-value { color:var(--accent2); }
+.stat-card.green .stat-value { color:var(--accent3); } .stat-card.yellow .stat-value { color:var(--accent4); }
+
+.controls { display:flex; gap:8px; margin:12px 0; flex-wrap:wrap; align-items:center; }
+.search-box { flex:1; min-width:180px; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:8px 12px; color:var(--text); font-family:'IBM Plex Sans',sans-serif; font-size:13px; outline:none; transition:border-color .2s; }
+.search-box:focus { border-color:var(--accent); }
+.search-box::placeholder { color:var(--text-muted); }
+select.fsel { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:8px 12px; color:var(--text); font-family:'IBM Plex Sans',sans-serif; font-size:13px; outline:none; cursor:pointer; }
+select.fsel option { background:var(--surface2); }
+.view-tabs { display:flex; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:3px; }
+.tab-btn { padding:6px 14px; border:none; background:transparent; color:var(--text-muted); font-family:'IBM Plex Sans',sans-serif; font-size:12px; font-weight:500; cursor:pointer; border-radius:7px; transition:all .2s; }
+.tab-btn.active { background:var(--surface2); color:var(--accent); border:1px solid var(--border); }
+
+.table-container { overflow-x:auto; }
+table.nt { width:100%; border-collapse:collapse; background:var(--surface); border-radius:12px; overflow:hidden; font-size:13px; }
+table.nt th { background:var(--surface2); padding:10px 14px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--text-muted); border-bottom:1px solid var(--border); white-space:nowrap; }
+table.nt td { padding:9px 14px; border-bottom:1px solid rgba(30,45,69,0.5); vertical-align:middle; }
+table.nt tr:hover td { background:rgba(0,212,255,0.02); }
+table.nt tr:last-child td { border-bottom:none; }
+.dc { font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--accent); white-space:nowrap; }
+.dy { font-weight:600; font-size:12px; }
+.dp,.dcu { color:var(--accent2); }
+
+.chip { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:5px; font-size:10px; font-weight:600; border:1px solid transparent; cursor:pointer; transition:all .15s; white-space:nowrap; }
+.chip:hover { opacity:.8; }
+.zk { background:var(--red-zone); color:#ff7090; border-color:rgba(255,77,109,0.3); }
+.zs { background:var(--yellow-zone); color:#ffc55a; border-color:rgba(255,179,64,0.3); }
+.zy { background:var(--green-zone); color:#5de8a0; border-color:rgba(57,217,138,0.3); }
+.zm { background:var(--blue-zone); color:#5dd8ff; border-color:rgba(0,212,255,0.3); }
+.zn { background:rgba(180,120,255,0.15); color:#c09aff; border-color:rgba(180,120,255,0.3); }
+.zt { background:rgba(255,154,92,0.15); color:#ff9a5c; border-color:rgba(255,154,92,0.3); }
+
+.cal-wrap { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-bottom:14px; }
+.cal-head { display:grid; grid-template-columns:85px repeat(7,1fr); background:var(--surface2); border-bottom:1px solid var(--border); }
+.cal-head>div { padding:7px 5px; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:1px; color:var(--text-muted); text-align:center; border-right:1px solid var(--border); }
+.cal-row { display:grid; grid-template-columns:85px repeat(7,1fr); border-bottom:1px solid var(--border); }
+.cal-row:last-child { border-bottom:none; }
+.cal-time { padding:6px 4px; font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--accent); font-weight:500; border-right:1px solid var(--border); display:flex; align-items:center; justify-content:center; text-align:center; background:rgba(0,212,255,0.03); }
+.cal-cell { padding:3px; border-right:1px solid var(--border); min-height:48px; }
+.cal-cell:last-child { border-right:none; }
+.today-col { background:rgba(0,212,255,0.04) !important; }
+.today-b { display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; background:var(--accent); color:#000; border-radius:50%; font-size:10px; font-weight:700; }
+
+.doc-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:12px; }
+.doc-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px; cursor:pointer; transition:all .2s; position:relative; overflow:hidden; }
+.doc-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:linear-gradient(90deg,var(--accent),transparent); opacity:0; transition:opacity .2s; }
+.doc-card:hover { border-color:rgba(0,212,255,0.3); transform:translateY(-1px); }
+.doc-card:hover::before { opacity:1; }
+.doc-av { width:42px; height:42px; border-radius:50%; background:linear-gradient(135deg,var(--surface2),var(--border)); display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; color:var(--accent); border:2px solid var(--border); margin-bottom:8px; font-family:'IBM Plex Mono',monospace; }
+.doc-nm { font-size:13px; font-weight:600; margin-bottom:3px; }
+.doc-ct { font-size:11px; color:var(--text-muted); margin-bottom:8px; }
+
+.overlay { position:fixed; inset:0; background:rgba(0,0,0,0.85); backdrop-filter:blur(6px); z-index:1000; display:flex; align-items:flex-start; justify-content:center; padding:32px 20px; overflow-y:auto; opacity:0; pointer-events:none; transition:opacity .25s; }
+.overlay.open { opacity:1; pointer-events:all; }
+.modal { background:var(--surface); border:1px solid var(--border); border-radius:20px; width:100%; max-width:580px; max-height:none; overflow-y:visible; transform:scale(0.93) translateY(12px); transition:transform .25s cubic-bezier(0.34,1.56,0.64,1); margin:auto; }
+.overlay.open .modal { transform:scale(1) translateY(0); }
+.mp { padding:22px; }
+.mt { font-size:17px; font-weight:700; margin-bottom:16px; display:flex; align-items:center; gap:10px; }
+.mc { margin-left:auto; background:var(--surface2); border:1px solid var(--border); color:var(--text-muted); cursor:pointer; font-size:13px; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; transition:all .15s; flex-shrink:0; }
+.mc:hover { background:var(--red-zone); color:var(--accent2); border-color:var(--accent2); }
+.fr { margin-bottom:13px; }
+.fl { font-size:11px; color:var(--text-muted); margin-bottom:5px; display:block; font-weight:600; text-transform:uppercase; letter-spacing:.5px; }
+.fi { width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:9px 12px; color:var(--text); font-family:'IBM Plex Sans',sans-serif; font-size:13px; outline:none; transition:border-color .2s; }
+.fi:focus { border-color:var(--accent); }
+.fr2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.zg { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-top:4px; }
+.zo { padding:7px; border-radius:7px; border:2px solid var(--border); cursor:pointer; text-align:center; font-size:11px; font-weight:600; transition:all .15s; }
+.zo.sel { border-color:currentColor; }
+.zo.ok { color:#ff7090; } .zo.ok.sel { background:var(--red-zone); }
+.zo.os { color:#ffc55a; } .zo.os.sel { background:var(--yellow-zone); }
+.zo.oy { color:#5de8a0; } .zo.oy.sel { background:var(--green-zone); }
+.zo.om { color:#5dd8ff; } .zo.om.sel { background:var(--blue-zone); }
+.zo.on { color:#c09aff; } .zo.on.sel { background:rgba(180,120,255,0.15); }
+.zo.ot { color:#ff9a5c; } .zo.ot.sel { background:rgba(255,154,92,0.15); }
+.ma { display:flex; gap:8px; justify-content:flex-end; margin-top:16px; }
+
+.dmh { padding:22px; background:linear-gradient(135deg,rgba(0,212,255,0.06) 0%,transparent 60%); border-bottom:1px solid var(--border); display:flex; align-items:center; gap:16px; position:relative; }
+.dmav { width:56px; height:56px; border-radius:14px; background:linear-gradient(135deg,rgba(0,212,255,0.2),rgba(0,212,255,0.05)); border:2px solid rgba(0,212,255,0.3); display:flex; align-items:center; justify-content:center; font-size:19px; font-weight:700; color:var(--accent); font-family:'IBM Plex Mono',monospace; flex-shrink:0; box-shadow:0 0 20px rgba(0,212,255,0.15); }
+.dmnm { font-size:18px; font-weight:700; margin-bottom:2px; }
+.dmsb { font-size:11px; color:var(--text-muted); }
+.dmcl { position:absolute; top:14px; right:14px; background:var(--surface2); border:1px solid var(--border); color:var(--text-muted); cursor:pointer; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; transition:all .15s; }
+.dmcl:hover { background:var(--red-zone); color:var(--accent2); border-color:var(--accent2); }
+.dmst { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--border); border-bottom:1px solid var(--border); }
+.dms { background:var(--surface); padding:12px; text-align:center; }
+.dmsv { font-size:24px; font-weight:700; font-family:'IBM Plex Mono',monospace; }
+.dmsl { font-size:9px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.8px; margin-top:2px; }
+.dmb { padding:18px 22px 22px; }
+.zpills { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:14px; }
+.zpill { display:flex; align-items:center; gap:5px; padding:4px 10px; border-radius:20px; font-size:11px; font-weight:600; border:1px solid; }
+.zpill .pn { background:rgba(255,255,255,0.15); border-radius:10px; padding:1px 5px; font-family:'IBM Plex Mono',monospace; font-size:10px; }
+.tl { display:flex; flex-direction:column; }
+.tli { display:flex; align-items:stretch; }
+.tll { width:14px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; padding-top:5px; }
+.tld { width:10px; height:10px; border-radius:50%; border:2px solid; background:var(--surface); flex-shrink:0; }
+.tlln { width:2px; background:var(--border); flex:1; margin-top:3px; min-height:8px; }
+.tli:last-child .tlln { display:none; }
+.tlr { flex:1; padding:2px 0 13px 11px; }
+.tlc { background:var(--surface2); border:1px solid var(--border); border-radius:9px; padding:8px 12px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; transition:border-color .15s; }
+.tlc:hover { border-color:rgba(0,212,255,0.3); }
+.tldtxt { font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--accent); font-weight:600; min-width:55px; }
+.tlday { font-size:9px; color:var(--text-muted); }
+.tlsh { font-size:10px; color:var(--text-muted); background:var(--bg); border-radius:4px; padding:2px 6px; border:1px solid var(--border); white-space:nowrap; }
+.tldel { margin-left:auto; background:none; border:none; color:var(--text-muted); cursor:pointer; padding:3px 5px; border-radius:4px; font-size:12px; transition:all .15s; }
+.tldel:hover { color:var(--accent2); background:var(--red-zone); }
+
+/* UPLOAD */
+.upload-area { border:2px dashed var(--border); border-radius:14px; padding:40px 30px; text-align:center; cursor:pointer; transition:all .3s; background:var(--surface); margin:24px 0; }
+.upload-area:hover, .upload-area.drag { border-color:var(--accent); background:rgba(0,212,255,0.04); }
+.upload-icon { font-size:42px; margin-bottom:12px; }
+.upload-title { font-size:16px; font-weight:600; margin-bottom:6px; }
+.upload-sub { font-size:12px; color:var(--text-muted); line-height:1.8; }
+.upload-sub span { color:var(--accent); }
+
+/* PARSE OVERLAY */
+.parse-ov { position:fixed; inset:0; background:rgba(0,0,0,0.92); backdrop-filter:blur(10px); z-index:2000; display:none; flex-direction:column; align-items:center; justify-content:center; gap:18px; }
+.parse-spin { width:50px; height:50px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.parse-title { font-size:16px; font-weight:600; color:var(--accent); }
+.parse-sub { font-size:12px; color:var(--text-muted); text-align:center; max-width:360px; line-height:1.7; }
+.parse-log { font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--accent3); }
+
+.empty-state { text-align:center; padding:60px 20px; color:var(--text-muted); }
+.empty-state .bi { font-size:46px; margin-bottom:14px; opacity:.5; }
+.empty-state h3 { font-size:15px; margin-bottom:8px; color:var(--text); }
+.empty-state p { font-size:13px; line-height:1.7; }
+.sep { height:1px; background:var(--border); margin:14px 0; }
+.err-b { background:var(--red-zone); border:1px solid rgba(255,77,109,0.3); border-radius:8px; padding:10px 14px; font-size:12px; color:#ff7090; margin:10px 0; display:none; }
+
+@media(max-width:768px){
+  .cal-head,.cal-row{grid-template-columns:65px repeat(4,1fr);}
+  .cal-head>div:nth-child(n+6),.cal-row>div:nth-child(n+6){display:none;}
+  .fr2{grid-template-columns:1fr;}
+}
+
+/* ── MOBİL OPTİMİZASYON ──────────────────────────────────────── */
+@media(max-width:600px){
+  body { font-size:14px; }
+
+  /* Header */
+  .header-inner { gap:8px; }
+  .logo-text h1 { font-size:14px; }
+  .logo-text p { display:none; }
+  .header-right { gap:6px; }
+  .btn-sm { padding:7px 11px; font-size:12px; min-height:36px; }
+
+  /* Stats */
+  .stats-bar { grid-template-columns:repeat(2,1fr); gap:8px; margin:10px 0; }
+  .stat-value { font-size:22px; }
+
+  /* Controls */
+  .controls { gap:6px; }
+  .search-box { min-width:0; font-size:13px; }
+  select.fsel { font-size:12px; padding:7px 8px; }
+  .view-tabs { flex-wrap:wrap; }
+  .tab-btn { padding:5px 10px; font-size:11px; }
+
+  /* Table */
+  table.nt th, table.nt td { padding:7px 8px; font-size:12px; }
+  .chip { font-size:9px; padding:2px 6px; }
+
+  /* Doc grid */
+  .doc-grid { grid-template-columns:repeat(2,1fr); gap:8px; }
+  .doc-card { padding:12px 10px; }
+  .doc-av { width:36px; height:36px; font-size:12px; }
+  .doc-nm { font-size:12px; }
+
+  /* Month bar */
+  .month-bar { gap:6px; padding:8px 0; }
+  .month-tab { padding:4px 10px; font-size:11px; }
+
+  /* Modals */
+  .overlay>div { width:96vw !important; max-width:96vw !important; margin:0 auto; max-height:92vh; overflow-y:auto; }
+  .dmh { padding:14px 16px; }
+  .dmb { padding:14px 16px; }
+  .dmst { padding:10px 16px; gap:8px; }
+  .dms { min-width:60px; }
+  .dmsv { font-size:20px; }
+
+  /* Add modal */
+  .zpills { gap:6px; }
+  .zo { padding:6px 10px; font-size:11px; }
+
+  /* Timeline */
+  .tl { padding:0 4px; }
+  .tlc { padding:8px 10px; gap:6px; }
+
+  /* Calendar */
+  .cal-head,.cal-row { grid-template-columns:50px repeat(4,1fr); }
+  .cal-time { font-size:8px; padding:4px 2px; }
+  .cal-cell { min-height:36px; padding:2px; }
+}
+
+@media(max-width:400px){
+  .doc-grid { grid-template-columns:1fr 1fr; }
+  .stats-bar { grid-template-columns:repeat(2,1fr); }
+  .header-right .btn-sm:not(:last-child) { display:none; }
+}
+</style>
+</head>
+<body>
+
+<!-- PARSE OVERLAY -->
+<div class="parse-ov" id="parseOv">
+  <div class="parse-spin"></div>
+  <div class="parse-title">📋 Liste Okunuyor...</div>
+  <div class="parse-sub" id="parseSub">Dosya işleniyor, nöbet verileri çıkarılıyor.</div>
+  <div class="parse-log" id="parseLog">Hazırlanıyor...</div>
+</div>
+
+<header>
+  <div class="container">
+    <div class="header-inner">
+      <div class="logo">
+        <img src="data:image/png;base64,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" style="height:52px;width:auto;object-fit:contain;filter:drop-shadow(0 0 6px rgba(255,255,255,0.45)) drop-shadow(0 0 14px rgba(100,160,255,0.35)) drop-shadow(0 0 2px rgba(255,255,255,0.6))" alt="Ümraniye ACİL">
+        <div class="logo-text"><h1>Acil Servis Nöbet Takibi</h1><p>Ümraniye EAH — Acil Tıp Kliniği</p></div>
+      </div>
+      <div class="header-right">
+        <button class="btn btn-secondary btn-sm" id="addBtn" style="display:none" onclick="showAddModal()">➕ Nöbet Ekle</button>
+        <button class="btn btn-primary btn-sm" onclick="triggerUpload('excel')">📊 Excel Yükle</button>
+        <input type="file" id="fiExcel" accept=".xlsx,.xls" style="display:none" onchange="handleFile(event)">
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+  <div class="month-bar" id="monthBar"><span class="months-empty">Henüz ay yüklenmedi</span></div>
+</div>
+
+<div class="container" id="mainArea">
+  <div class="upload-area" id="uploadArea"
+    ondragover="event.preventDefault();this.classList.add('drag')"
+    ondragleave="this.classList.remove('drag')"
+    ondrop="this.classList.remove('drag');handleDrop(event)"
+    onclick="askUpload()">
+    <div class="upload-icon">📊</div>
+    <div class="upload-title">Excel nöbet listesini yükleyin</div>
+    <div class="upload-sub">
+      <strong style="color:var(--text)">.xlsx veya .xls</strong> dosyasını sürükleyin ya da tıklayın<br>
+      <span>Ay, tarihler ve doktorlar otomatik tespit edilir</span><br>
+      <span style="color:var(--text-muted)">Yüklenen her ay kalıcı olarak kaydedilir</span>
+    </div>
+  </div>
+
+  <div id="dataArea" style="display:none">
+    <div class="stats-bar">
+      <div class="stat-card blue"><div class="stat-label">Toplam Nöbet</div><div class="stat-value" id="sTotal">0</div></div>
+      <div class="stat-card red"><div class="stat-label">Kırmızı Alan</div><div class="stat-value" id="sK">0</div></div>
+      <div class="stat-card yellow"><div class="stat-label">Sarı Alan</div><div class="stat-value" id="sS">0</div></div>
+      <div class="stat-card green"><div class="stat-label">Yeşil Alan</div><div class="stat-value" id="sY">0</div></div>
+    </div>
+    <div class="controls">
+      <div style="position:relative;flex:1;min-width:180px;display:flex;align-items:center">
+        <input type="text" class="search-box" id="searchBox" placeholder="🔍 Doktor adı ara..." oninput="fS(this.value)" style="flex:1;min-width:0;padding-right:30px">
+        <button id="searchClear" onclick="clearSearch()" style="display:none;position:absolute;right:8px;background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;line-height:1;padding:2px 4px;border-radius:4px" title="Temizle">✕</button>
+      </div>
+      <select class="fsel" onchange="fZ(this.value)">
+        <option value="">Tüm Alanlar</option>
+        <option value="kirmizi">🔴 Kırmızı</option><option value="sari">🟡 Sarı</option>
+        <option value="yesil">🟢 Yeşil</option><option value="musahade">🔵 Müşahade</option>
+        <option value="nobet">🟣 Nöbet Sor.</option><option value="travma">🟠 Travma</option>
+      </select>
+      <select class="fsel" onchange="fSh(this.value)">
+        <option value="">Tüm Vardiyalar</option>
+        <option value="gunduz">☀️ Gündüz</option><option value="aksam">🌙 Gece</option><option value="sorumluluk">📋 Sorumluluk</option>
+      </select>
+      <div class="view-tabs">
+        <button class="tab-btn active" onclick="setView('table',this)">📋 Liste</button>
+        <button class="tab-btn" onclick="setView('calendar',this)">📅 Takvim</button>
+        <button class="tab-btn" onclick="setView('doctors',this)">👥 Doktorlar</button>
+      </div>
+    </div>
+    <div class="err-b" id="errB"></div>
+    <div id="content"></div>
+  </div>
+</div>
+
+<!-- ADD MODAL -->
+<div class="overlay" id="addModal">
+  <div class="modal"><div class="mp">
+    <div class="mt">➕ Nöbet Ekle <button class="mc" onclick="cm('addModal')">✕</button></div>
+    <div class="fr"><label class="fl">Doktor Adı</label><input type="text" class="fi" id="inDoc" placeholder="Ad Soyad"></div>
+    <div class="fr2">
+      <div class="fr"><label class="fl">Tarih</label><input type="date" class="fi" id="inDate"></div>
+      <div class="fr"><label class="fl">Vardiya</label>
+        <select class="fi" id="inShift">
+          <option value="gunduz">☀️ Gündüz (08:30-17:30)</option>
+          <option value="aksam">🌙 Gece (17:30-08:30)</option>
+          <option value="sorumluluk">📋 Sorumluluk (08:00-17:00)</option>
+        </select>
+      </div>
+    </div>
+    <div class="fr"><label class="fl">Alan</label>
+      <div class="zg">
+        <div class="zo ok" onclick="sz('kirmizi',this)">🔴 Kırmızı</div>
+        <div class="zo os" onclick="sz('sari',this)">🟡 Sarı</div>
+        <div class="zo oy sel" onclick="sz('yesil',this)">🟢 Yeşil</div>
+        <div class="zo om" onclick="sz('musahade',this)">🔵 Müşahade</div>
+        <div class="zo on" onclick="sz('nobet',this)">🟣 Nöbet Sor.</div>
+        <div class="zo ot" onclick="sz('travma',this)">🟠 Travma</div>
+      </div>
+    </div>
+    <div class="ma"><button class="btn btn-secondary" onclick="cm('addModal')">İptal</button><button class="btn btn-primary" onclick="addShift()">Kaydet</button></div>
+  </div></div>
+</div>
+
+<!-- UPLOAD TYPE MODAL -->
+<div class="overlay" id="uploadTypeModal">
+  <div class="modal" style="max-width:360px">
+    <div class="mp">
+      <div class="mt">📂 Liste Türü Seç <button class="mc" onclick="cm('uploadTypeModal')">✕</button></div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px">
+        <button class="btn" style="justify-content:flex-start;gap:12px;padding:14px 16px;background:rgba(57,217,138,0.1);border:1px solid rgba(57,217,138,0.3);color:#5de8a0;font-size:14px" onclick="selectUploadType('uzman',null)">
+          <span style="font-size:20px">👨‍⚕️</span><span><strong>Uzman Doktor</strong><br><span style="font-size:11px;opacity:.7">Gündüz + Gece tek dosya</span></span>
+        </button>
+        <button class="btn" style="justify-content:flex-start;gap:12px;padding:14px 16px;background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.25);color:#5dd8ff;font-size:14px" onclick="selectUploadType('asistan','gunduz')">
+          <span style="font-size:20px">☀️</span><span><strong>Asistan – Gündüz</strong><br><span style="font-size:11px;opacity:.7">08:30 – 17:30</span></span>
+        </button>
+        <button class="btn" style="justify-content:flex-start;gap:12px;padding:14px 16px;background:rgba(180,120,255,0.08);border:1px solid rgba(180,120,255,0.25);color:#c09aff;font-size:14px" onclick="selectUploadType('asistan','aksam')">
+          <span style="font-size:20px">🌙</span><span><strong>Asistan – Gece</strong><br><span style="font-size:11px;opacity:.7">17:30 – 08:30</span></span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DOCTOR MODAL -->
+<div class="overlay" id="docModal">
+  <div class="modal" style="padding:0;overflow-y:auto;display:flex;flex-direction:column"><div id="docMC"></div></div>
+</div>
+
+<script>
+
+
+
+async function loadJson() {
+  const raw = document.getElementById('jsonInput').value.trim();
+  if (!raw) { alert('JSON boş'); return; }
+  let parsed;
+  try { parsed = JSON.parse(raw); } catch(e) { alert('Geçersiz JSON: ' + e.message); return; }
+  if (!parsed.monthKey || !Array.isArray(parsed.shifts)) { alert('Eksik alan: monthKey veya shifts yok.'); return; }
+  parsed.shifts = parsed.shifts.map((s,i) => ({...s, id: Date.now()+i}));
+  months[parsed.monthKey] = { label: parsed.label || parsed.monthKey, shifts: parsed.shifts };
+  try { await save(); } catch(e) {}
+  activeMonth = parsed.monthKey;
+  cm('jsonModal');
+  document.getElementById('jsonInput').value = '';
+  renderBar();
+  showMonth(parsed.monthKey);
+}
+</script>
+<script>
+const DAYS = ['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];
+const MONTHS = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+const ZL = {kirmizi:'🔴 Kırmızı',sari:'🟡 Sarı',yesil:'🟢 Yeşil',musahade:'🔵 Müşahade',nobet:'🟣 Nöbet Sor.',travma:'🟠 Travma'};
+const ZC = {
+  kirmizi:{c:'#ff7090',b:'rgba(255,77,109,0.4)',bg:'rgba(255,77,109,0.12)'},
+  sari:{c:'#ffc55a',b:'rgba(255,179,64,0.4)',bg:'rgba(255,179,64,0.12)'},
+  yesil:{c:'#5de8a0',b:'rgba(57,217,138,0.4)',bg:'rgba(57,217,138,0.12)'},
+  musahade:{c:'#5dd8ff',b:'rgba(0,212,255,0.4)',bg:'rgba(0,212,255,0.12)'},
+  nobet:{c:'#c09aff',b:'rgba(180,120,255,0.4)',bg:'rgba(180,120,255,0.12)'},
+  travma:{c:'#ff9a5c',b:'rgba(255,154,92,0.4)',bg:'rgba(255,154,92,0.12)'}
+};
+const SL = {gunduz:'☀️ Gündüz 08:30–17:30',aksam:'🌙 Gece 17:30–08:30',sorumluluk:'📋 Sorumluluk 08:00–17:00'};
+const SK = 'nobet_v4';
+const PAROLA = 'Gaksel';
+
+// ── KNOWN DOCTORS ──────────────────────────────────────────────────
+const KNOWN_DOCTORS = [
+  // Uzman / Profesör / Doçent
+  'ABDULLAH ALGIN','SERKAN EMRE EROĞLU','GÖKHAN AKSEL','SERDAR ÖZDEMİR',
+  'İBRAHİM ALTUNOK','MEHMET MUZAFFER İSLAM','CELİL ALKAN','TANJU TAŞYÜREK',
+  'FATMA KOLBAŞ','CEMRENUR UYGUN','DAMLA ÖZER İÇENLER','MERVE DEMET ÇOBAN',
+  'AHMET AKİF DURAK','MERVE OSOYDAN SATICI','HANDE AKBAL KAHRAMAN',
+  'ENİS ADEMOĞLU','HAZEL DENİZ ÇETİNKAYA','AYŞEN EKER MARANGOZ',
+  // Asistan
+  'MEHMET YURDAKUL','FAHRİYE NAZ ERDİL GÜNDÜZ','YÜKSEL ÇETİN','TURANCAN ODABAŞI',
+  'BURAK KÜKA','MUHAMMED CİHAD BAYRAKER','BATUHAN BAŞAR','MELİH CAN',
+  'MUHAMMET TALHA ÖZKURT','CEYDA ALTIN','ORHUN KARAHAN AYDIN','ALPER REŞİT GÜNDÜZ',
+  'NEVİN EKER','HÜLYA DAL','AYŞE UĞRAŞ','MEHMET SALİH AKINCI',
+  'MUHAMMET KAYLI','TUNAHAN DEMİR','FURKAN COŞKUN','AHMED GÜNEŞ',
+  'MUHAMMED ARDA ANIL','DİLŞA TARAKÇIOĞLU','ALPEREN KÜRŞAT ŞİMŞEK',
+  'FETHİYE BUSE DEMİR','BESTİNUR ŞUEKİNCİ','BERKİN SÖYLEMEZ','İLAYDA ŞAHBAZ'
+];
+function normTR(s){
+  return String(s).toUpperCase()
+    .replace(/İ/g,'I').replace(/Ğ/g,'G').replace(/Ü/g,'U').replace(/Ş/g,'S').replace(/Ö/g,'O').replace(/Ç/g,'C')
+    .replace(/ı/g,'I').replace(/ğ/g,'G').replace(/ü/g,'U').replace(/ş/g,'S').replace(/ö/g,'O').replace(/ç/g,'C');
+}
+const _KN = KNOWN_DOCTORS.map(normTR);
+// Soyadı/kısaltma → tam isim (benzersiz sonek eşleşmesi)
+function resolveDocName(upper) {
+  const n = normTR(upper);
+  const ei = _KN.indexOf(n);
+  if (ei >= 0) return KNOWN_DOCTORS[ei];
+  // Sonek: "KAHRAMAN" → "HANDE AKBAL KAHRAMAN"
+  const sfx = _KN.reduce((a,k,i)=>{if(k.endsWith(' '+n))a.push(i);return a;},[]);
+  if (sfx.length === 1) return KNOWN_DOCTORS[sfx[0]];
+  // Önek: "HANDE AKBAL" → "HANDE AKBAL KAHRAMAN"
+  const pfx = _KN.reduce((a,k,i)=>{if(k.startsWith(n+' '))a.push(i);return a;},[]);
+  if (pfx.length === 1) return KNOWN_DOCTORS[pfx[0]];
+  return upper;
+}
+// Ham hücre metnini doktor adı/adlarına ayır
+function splitCellNames(raw) {
+  const t = (raw||'').trim();
+  if (!t) return [];
+  // 1) Tire ile ayrılmış
+  const dp = t.split(/\s*[-–]\s*/);
+  if (dp.length >= 2 && dp[0].trim().length >= 4 && dp[1].trim().length >= 4)
+    return dp.slice(0,2).map(p => resolveDocName(p.trim().toUpperCase()));
+  const upper = t.toUpperCase();
+  const words = upper.split(/\s+/);
+  // 2) Bilinen isim listesiyle sol yarı eşleşmesi → iki isim
+  if (words.length >= 4) {
+    for (let i = 2; i <= words.length - 2; i++) {
+      const left = words.slice(0, i).join(' ');
+      if (_KN.includes(normTR(left))) {
+        const right = words.slice(i).join(' ');
+        if (right.length >= 4) return [resolveDocName(left), resolveDocName(right)];
+      }
+    }
+  }
+  // 3) Tek isim
+  return [resolveDocName(upper)];
+}
+const PRELOADED_DATA = {"monthKey":"2026-04","label":"Nisan 2026","shifts":[{"id":1,"date":"2026-04-01","doctor":"İBRAHİM ALTUNOK","zone":"nobet","shift":"gunduz"},{"id":2,"date":"2026-04-01","doctor":"SERDAR ÖZDEMİR","zone":"musahade","shift":"gunduz"},{"id":3,"date":"2026-04-01","doctor":"İBRAHİM ALTUNOK","zone":"sari","shift":"gunduz"},{"id":4,"date":"2026-04-01","doctor":"ABDULLAH ALGIN","zone":"sari","shift":"gunduz"},{"id":5,"date":"2026-04-01","doctor":"SERKAN EMRE EROĞLU","zone":"yesil","shift":"gunduz"},{"id":6,"date":"2026-04-01","doctor":"MERVE DEMET ÇOBAN","zone":"yesil","shift":"gunduz"},{"id":7,"date":"2026-04-01","doctor":"HANDE AKBAL KAHRAMAN","zone":"travma","shift":"gunduz"},{"id":8,"date":"2026-04-01","doctor":"İBRAHİM ALTUNOK","zone":"nobet","shift":"aksam"},{"id":9,"date":"2026-04-01","doctor":"İBRAHİM ALTUNOK","zone":"kirmizi","shift":"aksam"},{"id":10,"date":"2026-04-01","doctor":"MERVE DEMET ÇOBAN","zone":"yesil","shift":"aksam"},{"id":11,"date":"2026-04-01","doctor":"HANDE AKBAL KAHRAMAN","zone":"travma","shift":"aksam"},{"id":12,"date":"2026-04-02","doctor":"SERDAR ÖZDEMİR","zone":"nobet","shift":"gunduz"},{"id":13,"date":"2026-04-02","doctor":"GÖKHAN AKSEL","zone":"musahade","shift":"gunduz"},{"id":14,"date":"2026-04-02","doctor":"ABDULLAH ALGIN","zone":"sari","shift":"gunduz"},{"id":15,"date":"2026-04-02","doctor":"SERDAR ÖZDEMİR","zone":"yesil","shift":"gunduz"},{"id":16,"date":"2026-04-02","doctor":"HAZEL DENİZ ERDOĞAN","zone":"yesil","shift":"gunduz"},{"id":17,"date":"2026-04-02","doctor":"DAMLA ÖZER İÇENLER","zone":"travma","shift":"gunduz"},{"id":18,"date":"2026-04-02","doctor":"SERDAR ÖZDEMİR","zone":"nobet","shift":"aksam"},{"id":19,"date":"2026-04-02","doctor":"SERDAR ÖZDEMİR","zone":"kirmizi","shift":"aksam"},{"id":20,"date":"2026-04-02","doctor":"HAZEL DENİZ ERDOĞAN","zone":"yesil","shift":"aksam"},{"id":21,"date":"2026-04-02","doctor":"DAMLA ÖZER İÇENLER","zone":"travma","shift":"aksam"},{"id":22,"date":"2026-04-03","doctor":"ABDULLAH ALGIN","zone":"nobet","shift":"gunduz"},{"id":23,"date":"2026-04-03","doctor":"İBRAHİM ALTUNOK","zone":"musahade","shift":"gunduz"},{"id":24,"date":"2026-04-03","doctor":"ABDULLAH ALGIN","zone":"sari","shift":"gunduz"},{"id":25,"date":"2026-04-03","doctor":"ABDULLAH ALGIN","zone":"yesil","shift":"gunduz"},{"id":26,"date":"2026-04-03","doctor":"TANJU TAŞYÜREK","zone":"yesil","shift":"gunduz"},{"id":27,"date":"2026-04-03","doctor":"MERVE DEMET ÇOBAN","zone":"travma","shift":"gunduz"},{"id":28,"date":"2026-04-03","doctor":"ABDULLAH ALGIN","zone":"nobet","shift":"aksam"},{"id":29,"date":"2026-04-03","doctor":"ABDULLAH ALGIN","zone":"kirmizi","shift":"aksam"},{"id":30,"date":"2026-04-03","doctor":"TANJU TAŞYÜREK","zone":"yesil","shift":"aksam"},{"id":31,"date":"2026-04-03","doctor":"MERVE DEMET ÇOBAN","zone":"travma","shift":"aksam"},{"id":32,"date":"2026-04-04","doctor":"FATMA KOLBAŞ","zone":"nobet","shift":"gunduz"},{"id":33,"date":"2026-04-04","doctor":"FATMA KOLBAŞ","zone":"musahade","shift":"gunduz"},{"id":34,"date":"2026-04-04","doctor":"FATMA KOLBAŞ","zone":"sari","shift":"gunduz"},{"id":35,"date":"2026-04-04","doctor":"FATMA KOLBAŞ","zone":"yesil","shift":"gunduz"},{"id":36,"date":"2026-04-04","doctor":"MERVE OSOYDAN SATICI","zone":"yesil","shift":"gunduz"},{"id":37,"date":"2026-04-04","doctor":"CELİL ALKAN","zone":"travma","shift":"gunduz"},{"id":38,"date":"2026-04-04","doctor":"FATMA KOLBAŞ","zone":"nobet","shift":"aksam"},{"id":39,"date":"2026-04-04","doctor":"FATMA KOLBAŞ","zone":"kirmizi","shift":"aksam"},{"id":40,"date":"2026-04-04","doctor":"MERVE OSOYDAN SATICI","zone":"yesil","shift":"aksam"},{"id":41,"date":"2026-04-04","doctor":"CELİL ALKAN","zone":"travma","shift":"aksam"},{"id":42,"date":"2026-04-05","doctor":"ABDULLAH ALGIN","zone":"nobet","shift":"gunduz"},{"id":43,"date":"2026-04-05","doctor":"ABDULLAH ALGIN","zone":"musahade","shift":"gunduz"},{"id":44,"date":"2026-04-05","doctor":"ABDULLAH ALGIN","zone":"sari","shift":"gunduz"},{"id":45,"date":"2026-04-05","doctor":"ABDULLAH ALGIN","zone":"yesil","shift":"gunduz"},{"id":46,"date":"2026-04-05","doctor":"HAZEL DENİZ ERDOĞAN","zone":"yesil","shift":"gunduz"},{"id":47,"date":"2026-04-05","doctor":"MERVE DEMET ÇOBAN","zone":"travma","shift":"gunduz"},{"id":48,"date":"2026-04-05","doctor":"ABDULLAH ALGIN","zone":"nobet","shift":"aksam"},{"id":49,"date":"2026-04-05","doctor":"ABDULLAH ALGIN","zone":"kirmizi","shift":"aksam"},{"id":50,"date":"2026-04-05","doctor":"HAZEL DENİZ ERDOĞAN","zone":"yesil","shift":"aksam"},{"id":51,"date":"2026-04-05","doctor":"MERVE DEMET ÇOBAN","zone":"travma","shift":"aksam"},{"id":52,"date":"2026-04-06","doctor":"MEHMET MUZAFFER İSLAM","zone":"nobet","shift":"gunduz"},{"id":53,"date":"2026-04-06","doctor":"GÖKHAN AKSEL","zone":"sari","shift":"gunduz"},{"id":54,"date":"2026-04-06","doctor":"SERKAN EMRE EROĞLU","zone":"yesil","shift":"gunduz"},{"id":55,"date":"2026-04-06","doctor":"TANJU TAŞYÜREK","zone":"yesil","shift":"gunduz"},{"id":56,"date":"2026-04-06","doctor":"HANDE AKBAL KAHRAMAN","zone":"travma","shift":"gunduz"},{"id":57,"date":"2026-04-06","doctor":"MEHMET MUZAFFER İSLAM","zone":"nobet","shift":"aksam"},{"id":58,"date":"2026-04-06","doctor":"MEHMET MUZAFFER İSLAM","zone":"kirmizi","shift":"aksam"},{"id":59,"date":"2026-04-06","doctor":"TANJU TAŞYÜREK","zone":"yesil","shift":"aksam"},{"id":60,"date":"2026-04-06","doctor":"HANDE AKBAL KAHRAMAN","zone":"travma","shift":"aksam"},{"id":61,"date":"2026-04-07","doctor":"GÖKHAN AKSEL","zone":"nobet","shift":"gunduz"},{"id":62,"date":"2026-04-07","doctor":"SERDAR ÖZDEMİR","zone":"musahade","shift":"gunduz"},{"id":63,"date":"2026-04-07","doctor":"İBRAHİM ALTUNOK","zone":"sari","shift":"gunduz"},{"id":64,"date":"2026-04-07","doctor":"ABDULLAH ALGIN","zone":"sari","shift":"gunduz"},{"id":65,"date":"2026-04-07","doctor":"SERKAN EMRE EROĞLU","zone":"yesil","shift":"gunduz"},{"id":66,"date":"2026-04-07","doctor":"AHMET AKİF DURAK","zone":"yesil","shift":"gunduz"},{"id":67,"date":"2026-04-07","doctor":"CELİL ALKAN","zone":"travma","shift":"gunduz"},{"id":68,"date":"2026-04-07","doctor":"GÖKHAN AKSEL","zone":"nobet","shift":"aksam"},{"id":69,"date":"2026-04-07","doctor":"FATMA KOLBAŞ","zone":"kirmizi","shift":"aksam"},{"id":70,"date":"2026-04-07","doctor":"AHMET AKİF DURAK","zone":"yesil","shift":"aksam"},{"id":71,"date":"2026-04-07","doctor":"CELİL ALKAN","zone":"travma","shift":"aksam"},{"id":72,"date":"2026-04-08","doctor":"MEHMET MUZAFFER İSLAM","zone":"nobet","shift":"gunduz"},{"id":73,"date":"2026-04-08","doctor":"ABDULLAH ALGIN","zone":"musahade","shift":"gunduz"},{"id":74,"date":"2026-04-08","doctor":"SERKAN EMRE EROĞLU","zone":"yesil","shift":"gunduz"},{"id":75,"date":"2026-04-08","doctor":"HAZEL DENİZ ERDOĞAN","zone":"yesil","shift":"gunduz"},{"id":76,"date":"2026-04-08","doctor":"MERVE DEMET ÇOBAN","zone":"travma","shift":"gunduz"},{"id":77,"date":"2026-04-08","doctor":"MEHMET MUZAFFER İSLAM","zone":"nobet","shift":"aksam"},{"id":78,"date":"2026-04-08","doctor":"MERVE OSOYDAN SATICI","zone":"kirmizi","shift":"aksam"},{"id":79,"date":"2026-04-08","doctor":"HAZEL DENİZ ERDOĞAN","zone":"yesil","shift":"aksam"},{"id":80,"date":"2026-04-08","doctor":"MERVE DEMET ÇOBAN","zone":"travma","shift":"aksam"},{"id":81,"date":"2026-04-09","doctor":"SERDAR ÖZDEMİR","zone":"nobet","shift":"gunduz"},{"id":82,"date":"2026-04-09","doctor":"GÖKHAN AKSEL","zone":"musahade","shift":"gunduz"},{"id":83,"date":"2026-04-09","doctor":"ABDULLAH ALGIN","zone":"sari","shift":"gunduz"},{"id":84,"date":"2026-04-09","doctor":"SERKAN EMRE EROĞLU","zone":"yesil","shift":"gunduz"},{"id":85,"date":"2026-04-09","doctor":"TANJU TAŞYÜREK","zone":"yesil","shift":"gunduz"},{"id":86,"date":"2026-04-09","doctor":"HANDE AKBAL KAHRAMAN","zone":"travma","shift":"gunduz"},{"id":87,"date":"2026-04-09","doctor":"SERDAR ÖZDEMİR","zone":"nobet","shift":"aksam"},{"id":88,"date":"2026-04-09","doctor":"SERDAR ÖZDEMİR","zone":"kirmizi","shift":"aksam"},{"id":89,"date":"2026-04-09","doctor":"TANJU TAŞYÜREK","zone":"yesil","shift":"aksam"},{"id":90,"date":"2026-04-09","doctor":"HANDE AKBAL KAHRAMAN","zone":"travma","shift":"aksam"},{"id":91,"date":"2026-04-10","doctor":"ABDULLAH ALGIN","zone":"nobet","shift":"gunduz"},{"id":92,"date":"2026-04-10","doctor":"MEHMET MUZAFFER İSLAM","zone":"musahade","shift":"gunduz"},{"id":93,"date":"2026-04-10","doctor":"İBRAHİM ALTUNOK","zone":"sari","shift":"gunduz"},{"id":94,"date":"2026-04-10","doctor":"SERDAR ÖZDEMİR","zone":"sari","shift":"gunduz"},{"id":95,"date":"2026-04-10","doctor":"SERKAN EMRE EROĞLU","zone":"yesil","shift":"gunduz"},{"id":96,"date":"2026-04-10","doctor":"AHMET AKİF DURAK","zone":"yesil","shift":"gunduz"},{"id":97,"date":"2026-04-10","doctor":"FATMA KOLBAŞ","zone":"travma","shift":"gunduz"},{"id":98,"date":"2026-04-10","doctor":"ABDULLAH ALGIN","zone":"nobet","shift":"aksam"},{"id":99,"date":"2026-04-10","doctor":"ENİS ADEMOĞLU","zone":"kirmizi","shift":"aksam"},{"id":100,"date":"2026-04-10","doctor":"AHMET AKİF DURAK","zone":"yesil","shift":"aksam"},{"id":101,"date":"2026-04-10","doctor":"FATMA KOLBAŞ","zone":"travma","shift":"aksam"},{"id":102,"date":"2026-04-11","doctor":"MERVE OSOYDAN SATICI","zone":"nobet","shift":"gunduz"},{"id":103,"date":"2026-04-11","doctor":"MERVE OSOYDAN SATICI","zone":"musahade","shift":"gunduz"},{"id":104,"date":"2026-04-11","doctor":"MERVE OSOYDAN SATICI","zone":"sari","shift":"gunduz"},{"id":105,"date":"2026-04-11","doctor":"MERVE OSOYDAN SATICI","zone":"yesil","shift":"gunduz"},{"id":106,"date":"2026-04-11","doctor":"HAZEL DENİZ ERDOĞAN","zone":"yesil","shift":"gunduz"},{"id":107,"date":"2026-04-11","doctor":"MERVE DEMET ÇOBAN","zone":"travma","shift":"gunduz"},{"id":108,"date":"2026-04-11","doctor":"MERVE OSOYDAN SATICI","zone":"nobet","shift":"aksam"},{"id":109,"date":"2026-04-11","doctor":"MERVE OSOYDAN SATICI","zone":"kirmizi","shift":"aksam"},{"id":110,"date":"2026-04-11","doctor":"HAZEL DENİZ ERDOĞAN","zone":"yesil","shift":"aksam"},{"id":111,"date":"2026-04-11","doctor":"MERVE DEMET ÇOBAN","zone":"travma","shift":"aksam"},{"id":112,"date":"2026-04-12","doctor":"MEHMET MUZAFFER İSLAM","zone":"nobet","shift":"gunduz"},{"id":113,"date":"2026-04-12","doctor":"MEHMET MUZAFFER İSLAM","zone":"musahade","shift":"gunduz"},{"id":114,"date":"2026-04-12","doctor":"MEHMET MUZAFFER İSLAM","zone":"sari","shift":"gunduz"},{"id":115,"date":"2026-04-12","doctor":"MEHMET MUZAFFER İSLAM","zone":"yesil","shift":"gunduz"},{"id":116,"date":"2026-04-12","doctor":"TANJU TAŞYÜREK","zone":"yesil","shift":"gunduz"},{"id":117,"date":"2026-04-12","doctor":"AHMET AKİF DURAK","zone":"travma","shift":"gunduz"},{"id":118,"date":"2026-04-12","doctor":"MEHMET MUZAFFER İSLAM","zone":"nobet","shift":"aksam"},{"id":119,"date":"2026-04-12","doctor":"ENİS ADEMOĞLU","zone":"kirmizi","shift":"aksam"},{"id":120,"date":"2026-04-12","doctor":"TANJU TAŞYÜREK","zone":"yesil","shift":"aksam"},{"id":121,"date":"2026-04-12","doctor":"AHMET AKİF DURAK","zone":"travma","shift":"aksam"},{"id":122,"date":"2026-04-13","doctor":"İBRAHİM ALTUNOK","zone":"nobet","shift":"gunduz"},{"id":123,"date":"2026-04-13","doctor":"ABDULLAH ALGIN","zone":"sari","shift":"gunduz"},{"id":124,"date":"2026-04-13","doctor":"SERKAN EMRE EROĞLU","zone":"yesil","shift":"gunduz"},{"id":125,"date":"2026-04-13","doctor":"AYŞEN EKER MARANGOZ","zone":"yesil","shift":"gunduz"},{"id":126,"date":"2026-04-13","doctor":"CEMRE NUR UYGUN","zone":"travma","shift":"gunduz"},{"id":127,"date":"2026-04-13","doctor":"İBRAHİM ALTUNOK","zone":"nobet","shift":"aksam"},{"id":128,"date":"2026-04-13","doctor":"FATMA KOLBAŞ","zone":"kirmizi","shift":"aksam"},{"id":129,"date":"2026-04-13","doctor":"AYŞEN EKER MARANGOZ","zone":"yesil","shift":"aksam"},{"id":130,"date":"2026-04-13","doctor":"CEMRE NUR UYGUN","zone":"travma","shift":"aksam"},{"id":131,"date":"2026-04-14","doctor":"GÖKHAN AKSEL","zone":"nobet","shift":"gunduz"},{"id":132,"date":"2026-04-14","doctor":"ABDULLAH ALGIN","zone":"musahade","shift":"gunduz"},{"id":133,"date":"2026-04-14","doctor":"İBRAHİM ALTUNOK","zone":"musahade","shift":"gunduz"},{"id":134,"date":"2026-04-14","doctor":"MEHMET MUZAFFER","zone":"sari","shift":"gunduz"},{"id":135,"date":"2026-04-14","doctor":"İSLAM SERDAR ÖZDEMİR","zone":"sari","shift":"gunduz"},{"id":136,"date":"2026-04-14","doctor":"SERKAN EMRE EROĞLU","zone":"yesil","shift":"gunduz"},{"id":137,"date":"2026-04-14","doctor":"TANJU TAŞYÜREK","zone":"yesil","shift":"gunduz"},{"id":138,"date":"2026-04-14","doctor":"MERVE DEMET ÇOBAN","zone":"travma","shift":"gunduz"},{"id":139,"date":"2026-04-14","doctor":"GÖKHAN AKSEL","zone":"nobet","shift":"aksam"},{"id":140,"date":"2026-04-14","doctor":"MERVE OSOYDAN SATICI","zone":"kirmizi","shift":"aksam"},{"id":141,"date":"2026-04-14","doctor":"TANJU TAŞYÜREK","zone":"yesil","shift":"aksam"},{"id":142,"date":"2026-04-14","doctor":"MERVE DEMET ÇOBAN","zone":"travma","shift":"aksam"},{"id":143,"date":"2026-04-15","doctor":"İBRAHİM ALTUNOK","zone":"nobet","shift":"gunduz"},{"id":144,"date":"2026-04-15","doctor":"MEHMET MUZAFFER İSLAM","zone":"musahade","shift":"gunduz"},{"id":145,"date":"2026-04-15","doctor":"ABDULLAH ALGIN","zone":"sari","shift":"gunduz"},{"id":146,"date":"2026-04-15","doctor":"SERKAN EMRE EROĞLU","zone":"yesil","shift":"gunduz"},{"id":147,"date":"2026-04-15","doctor":"HAZEL DENİZ ERDOĞAN","zone":"yesil","shift":"gunduz"},{"id":148,"date":"2026-04-15","doctor":"FATMA KOLBAŞ","zone":"travma","shift":"gunduz"},{"id":149,"date":"2026-04-15","doctor":"İBRAHİM ALTUNOK","zone":"nobet","shift":"aksam"},{"id":150,"date":"2026-04-15","doctor":"ENİS ADEMOĞLU","zone":"kirmizi","shift":"aksam"},{"id":151,"date":"2026-04-15","doctor":"HAZEL DENİZ ERDOĞAN","zone":"yesil","shift":"aksam"},{"id":152,"date":"2026-04-15","doctor":"FATMA KOLBAŞ","zone":"travma","shift":"aksam"},{"id":153,"date":"2026-04-16","doctor":"SERDAR ÖZDEMİR","zone":"nobet","shift":"gunduz"},{"id":154,"date":"2026-04-16","doctor":"ABDULLAH ALGIN","zone":"musahade","shift":"gunduz"},{"id":155,"date":"2026-04-16","doctor":"MEHMET MUZAFFER İSLAM","zone":"musahade","shift":"gunduz"},{"id":156,"date":"2026-04-16","doctor":"GÖKHAN AKSEL","zone":"sari","shift":"gunduz"},{"id":157,"date":"2026-04-16","doctor":"SERKAN EMRE EROĞLU","zone":"yesil","shift":"gunduz"},{"id":158,"date":"2026-04-16","doctor":"MERVE DEMET ÇOBAN","zone":"yesil","shift":"gunduz"},{"id":159,"date":"2026-04-16","doctor":"HANDE AKBAL KAHRAMAN","zone":"travma","shift":"gunduz"},{"id":160,"date":"2026-04-16","doctor":"SERDAR ÖZDEMİR","zone":"nobet","shift":"aksam"},{"id":161,"date":"2026-04-16","doctor":"SERDAR ÖZDEMİR","zone":"kirmizi","shift":"aksam"},{"id":162,"date":"2026-04-16","doctor":"MERVE DEMET ÇOBAN","zone":"yesil","shift":"aksam"},{"id":163,"date":"2026-04-16","doctor":"HANDE AKBAL KAHRAMAN","zone":"travma","shift":"aksam"},{"id":164,"date":"2026-04-17","doctor":"MEHMET MUZAFFER İSLAM","zone":"nobet","shift":"gunduz"},{"id":165,"date":"2026-04-17","doctor":"ABDULLAH ALGIN","zone":"sari","shift":"gunduz"},{"id":166,"date":"2026-04-17","doctor":"SERKAN EMRE EROĞLU","zone":"yesil","shift":"gunduz"},{"id":167,"date":"2026-04-17","doctor":"CEMRE NUR UYGUN","zone":"yesil","shift":"gunduz"},{"id":168,"date":"2026-04-17","doctor":"CELİL ALKAN","zone":"travma","shift":"gunduz"},{"id":169,"date":"2026-04-17","doctor":"MEHMET MUZAFFER İSLAM","zone":"nobet","shift":"aksam"},{"id":170,"date":"2026-04-17","doctor":"MEHMET MUZAFFER İSLAM","zone":"kirmizi","shift":"aksam"},{"id":171,"date":"2026-04-17","doctor":"CEMRE NUR UYGUN","zone":"yesil","shift":"aksam"},{"id":172,"date":"2026-04-17","doctor":"CELİL ALKAN","zone":"travma","shift":"aksam"},{"id":173,"date":"2026-04-18","doctor":"ABDULLAH ALGIN","zone":"nobet","shift":"gunduz"},{"id":174,"date":"2026-04-18","doctor":"ABDULLAH ALGIN","zone":"musahade","shift":"gunduz"},{"id":175,"date":"2026-04-18","doctor":"ABDULLAH ALGIN","zone":"sari","shift":"gunduz"},{"id":176,"date":"2026-04-18","doctor":"ABDULLAH ALGIN","zone":"yesil","shift":"gunduz"},{"id":177,"date":"2026-04-18","doctor":"MERVE OSOYDAN SATICI","zone":"yesil","shift":"gunduz"},{"id":178,"date":"2026-04-18","doctor":"AYŞEN EKER MARANGOZ","zone":"travma","shift":"gunduz"},{"id":179,"date":"2026-04-18","doctor":"ABDULLAH ALGIN","zone":"nobet","shift":"aksam"},{"id":180,"date":"2026-04-18","doctor":"FATMA KOLBAŞ","zone":"kirmizi","shift":"aksam"},{"id":181,"date":"2026-04-18","doctor":"MERVE OSOYDAN SATICI","zone":"yesil","shift":"aksam"},{"id":182,"date":"2026-04-18","doctor":"AYŞEN EKER MARANGOZ","zone":"travma","shift":"aksam"},{"id":183,"date":"2026-04-19","doctor":"ENİS ADEMOĞLU","zone":"nobet","shift":"gunduz"},{"id":184,"date":"2026-04-19","doctor":"ENİS ADEMOĞLU","zone":"musahade","shift":"gunduz"},{"id":185,"date":"2026-04-19","doctor":"ENİS ADEMOĞLU","zone":"sari","shift":"gunduz"},{"id":186,"date":"2026-04-19","doctor":"ENİS ADEMOĞLU","zone":"yesil","shift":"gunduz"},{"id":187,"date":"2026-04-19","doctor":"HANDE AKBAL KAHRAMAN","zone":"yesil","shift":"gunduz"},{"id":188,"date":"2026-04-19","doctor":"CELİL ALKAN","zone":"travma","shift":"gunduz"},{"id":189,"date":"2026-04-19","doctor":"ENİS ADEMOĞLU","zone":"nobet","shift":"aksam"},{"id":190,"date":"2026-04-19","doctor":"ENİS ADEMOĞLU","zone":"kirmizi","shift":"aksam"},{"id":191,"date":"2026-04-19","doctor":"HANDE AKBAL KAHRAMAN","zone":"yesil","shift":"aksam"},{"id":192,"date":"2026-04-19","doctor":"CELİL ALKAN","zone":"travma","shift":"aksam"},{"id":193,"date":"2026-04-20","doctor":"GÖKHAN AKSEL","zone":"nobet","shift":"gunduz"},{"id":194,"date":"2026-04-20","doctor":"ABDULLAH ALGIN","zone":"musahade","shift":"gunduz"},{"id":195,"date":"2026-04-20","doctor":"SERKAN EMRE EROĞLU**","zone":"yesil","shift":"gunduz"},{"id":196,"date":"2026-04-20","doctor":"AYŞEN EKER MARANGOZ","zone":"yesil","shift":"gunduz"},{"id":197,"date":"2026-04-20","doctor":"DAMLA ÖZER İÇENLER","zone":"travma","shift":"gunduz"},{"id":198,"date":"2026-04-20","doctor":"GÖKHAN AKSEL","zone":"nobet","shift":"aksam"},{"id":199,"date":"2026-04-20","doctor":"AYŞEN EKER MARANGOZ","zone":"yesil","shift":"aksam"},{"id":200,"date":"2026-04-20","doctor":"DAMLA ÖZER İÇENLER","zone":"travma","shift":"aksam"},{"id":201,"date":"2026-04-21","doctor":"ABDULLAH ALGIN","zone":"nobet","shift":"gunduz"},{"id":202,"date":"2026-04-21","doctor":"SERDAR ÖZDEMİR","zone":"musahade","shift":"gunduz"},{"id":203,"date":"2026-04-21","doctor":"İBRAHİM ALTUNOK","zone":"sari","shift":"gunduz"},{"id":204,"date":"2026-04-21","doctor":"SERKAN EMRE EROĞLU","zone":"yesil","shift":"gunduz"},{"id":205,"date":"2026-04-21","doctor":"CELİL ALKAN","zone":"yesil","shift":"gunduz"},{"id":206,"date":"2026-04-21","doctor":"AHMET AKİF DURAK","zone":"travma","shift":"gunduz"},{"id":207,"date":"2026-04-21","doctor":"ABDULLAH ALGIN","zone":"nobet","shift":"aksam"},{"id":208,"date":"2026-04-21","doctor":"ABDULLAH ALGIN","zone":"kirmizi","shift":"aksam"},{"id":209,"date":"2026-04-21","doctor":"CELİL ALKAN","zone":"yesil","shift":"aksam"},{"id":210,"date":"2026-04-21","doctor":"AHMET AKİF DURAK","zone":"travma","shift":"aksam"},{"id":211,"date":"2026-04-22","doctor":"SERDAR ÖZDEMİR","zone":"nobet","shift":"gunduz"},{"id":212,"date":"2026-04-22","doctor":"GÖKHAN AKSEL","zone":"musahade","shift":"gunduz"},{"id":213,"date":"2026-04-22","doctor":"SERKAN EMRE EROĞLU","zone":"yesil","shift":"gunduz"},{"id":214,"date":"2026-04-22","doctor":"HANDE AKBAL KAHRAMAN","zone":"yesil","shift":"gunduz"},{"id":215,"date":"2026-04-22","doctor":"CEMRE NUR UYGUN","zone":"travma","shift":"gunduz"},{"id":216,"date":"2026-04-22","doctor":"SERDAR ÖZDEMİR","zone":"nobet","shift":"aksam"},{"id":217,"date":"2026-04-22","doctor":"SERDAR ÖZDEMİR","zone":"kirmizi","shift":"aksam"},{"id":218,"date":"2026-04-22","doctor":"HANDE AKBAL KAHRAMAN","zone":"yesil","shift":"aksam"},{"id":219,"date":"2026-04-22","doctor":"CEMRE NUR UYGUN","zone":"travma","shift":"aksam"},{"id":220,"date":"2026-04-23","doctor":"ABDULLAH ALGIN","zone":"nobet","shift":"gunduz"},{"id":221,"date":"2026-04-23","doctor":"ABDULLAH ALGIN","zone":"musahade","shift":"gunduz"},{"id":222,"date":"2026-04-23","doctor":"ABDULLAH ALGIN","zone":"sari","shift":"gunduz"},{"id":223,"date":"2026-04-23","doctor":"ABDULLAH ALGIN","zone":"yesil","shift":"gunduz"},{"id":224,"date":"2026-04-23","doctor":"AHMET AKİF DURAK","zone":"yesil","shift":"gunduz"},{"id":225,"date":"2026-04-23","doctor":"ENİS ADEMOĞLU","zone":"travma","shift":"gunduz"},{"id":226,"date":"2026-04-23","doctor":"ABDULLAH ALGIN","zone":"nobet","shift":"aksam"},{"id":227,"date":"2026-04-23","doctor":"ABDULLAH ALGIN","zone":"kirmizi","shift":"aksam"},{"id":228,"date":"2026-04-23","doctor":"AHMET AKİF DURAK","zone":"yesil","shift":"aksam"},{"id":229,"date":"2026-04-23","doctor":"ENİS ADEMOĞLU","zone":"travma","shift":"aksam"},{"id":230,"date":"2026-04-24","doctor":"GÖKHAN AKSEL","zone":"nobet","shift":"gunduz"},{"id":231,"date":"2026-04-24","doctor":"SERKAN EMRE EROĞLU","zone":"yesil","shift":"gunduz"},{"id":232,"date":"2026-04-24","doctor":"CEMRE NUR UYGUN","zone":"yesil","shift":"gunduz"},{"id":233,"date":"2026-04-24","doctor":"DAMLA ÖZER İÇENLER","zone":"travma","shift":"gunduz"},{"id":234,"date":"2026-04-24","doctor":"GÖKHAN AKSEL","zone":"nobet","shift":"aksam"},{"id":235,"date":"2026-04-24","doctor":"CEMRE NUR UYGUN","zone":"yesil","shift":"aksam"},{"id":236,"date":"2026-04-24","doctor":"DAMLA ÖZER İÇENLER","zone":"travma","shift":"aksam"},{"id":237,"date":"2026-04-25","doctor":"SERDAR ÖZDEMİR","zone":"nobet","shift":"gunduz"},{"id":238,"date":"2026-04-25","doctor":"SERDAR ÖZDEMİR","zone":"musahade","shift":"gunduz"},{"id":239,"date":"2026-04-25","doctor":"SERDAR ÖZDEMİR","zone":"sari","shift":"gunduz"},{"id":240,"date":"2026-04-25","doctor":"SERDAR ÖZDEMİR","zone":"yesil","shift":"gunduz"},{"id":241,"date":"2026-04-25","doctor":"AYŞEN EKER MARANGOZ","zone":"yesil","shift":"gunduz"},{"id":242,"date":"2026-04-25","doctor":"ENİS ADEMOĞLU","zone":"travma","shift":"gunduz"},{"id":243,"date":"2026-04-25","doctor":"SERDAR ÖZDEMİR","zone":"nobet","shift":"aksam"},{"id":244,"date":"2026-04-25","doctor":"MERVE OSOYDAN SATICI","zone":"kirmizi","shift":"aksam"},{"id":245,"date":"2026-04-25","doctor":"AYŞEN EKER MARANGOZ","zone":"yesil","shift":"aksam"},{"id":246,"date":"2026-04-25","doctor":"ENİS ADEMOĞLU","zone":"travma","shift":"aksam"},{"id":247,"date":"2026-04-26","doctor":"İBRAHİM ALTUNOK","zone":"nobet","shift":"gunduz"},{"id":248,"date":"2026-04-26","doctor":"AHMET AKİF DURAK","zone":"yesil","shift":"gunduz"},{"id":249,"date":"2026-04-26","doctor":"DAMLA ÖZER İÇENLER","zone":"travma","shift":"gunduz"},{"id":250,"date":"2026-04-26","doctor":"İBRAHİM ALTUNOK","zone":"nobet","shift":"aksam"},{"id":251,"date":"2026-04-26","doctor":"İBRAHİM ALTUNOK","zone":"kirmizi","shift":"aksam"},{"id":252,"date":"2026-04-26","doctor":"AHMET AKİF DURAK","zone":"yesil","shift":"aksam"},{"id":253,"date":"2026-04-26","doctor":"DAMLA ÖZER İÇENLER","zone":"travma","shift":"aksam"},{"id":254,"date":"2026-04-27","doctor":"MEHMET MUZAFFER İSLAM","zone":"nobet","shift":"gunduz"},{"id":255,"date":"2026-04-27","doctor":"ABDULLAH ALGIN","zone":"musahade","shift":"gunduz"},{"id":256,"date":"2026-04-27","doctor":"SERKAN EMRE EROĞLU**","zone":"yesil","shift":"gunduz"},{"id":257,"date":"2026-04-27","doctor":"CELİL ALKAN","zone":"yesil","shift":"gunduz"},{"id":258,"date":"2026-04-27","doctor":"HANDE AKBAL KAHRAMAN","zone":"travma","shift":"gunduz"},{"id":259,"date":"2026-04-27","doctor":"MEHMET MUZAFFER İSLAM","zone":"nobet","shift":"aksam"},{"id":260,"date":"2026-04-27","doctor":"FATMA KOLBAŞ","zone":"kirmizi","shift":"aksam"},{"id":261,"date":"2026-04-27","doctor":"CELİL ALKAN","zone":"yesil","shift":"aksam"},{"id":262,"date":"2026-04-27","doctor":"HANDE AKBAL KAHRAMAN","zone":"travma","shift":"aksam"},{"id":263,"date":"2026-04-28","doctor":"GÖKHAN AKSEL","zone":"nobet","shift":"gunduz"},{"id":264,"date":"2026-04-28","doctor":"İBRAHİM ALTUNOK","zone":"musahade","shift":"gunduz"},{"id":265,"date":"2026-04-28","doctor":"SERDAR ÖZDEMİR","zone":"sari","shift":"gunduz"},{"id":266,"date":"2026-04-28","doctor":"ABDULLAH ALGIN","zone":"sari","shift":"gunduz"},{"id":267,"date":"2026-04-28","doctor":"SERKAN EMRE EROĞLU","zone":"yesil","shift":"gunduz"},{"id":268,"date":"2026-04-28","doctor":"TANJU TAŞYÜREK","zone":"yesil","shift":"gunduz"},{"id":269,"date":"2026-04-28","doctor":"HAZEL DENİZ ERDOĞAN","zone":"travma","shift":"gunduz"},{"id":270,"date":"2026-04-28","doctor":"GÖKHAN AKSEL","zone":"nobet","shift":"aksam"},{"id":271,"date":"2026-04-28","doctor":"MERVE OSOYDAN SATICI","zone":"kirmizi","shift":"aksam"},{"id":272,"date":"2026-04-28","doctor":"TANJU TAŞYÜREK","zone":"yesil","shift":"aksam"},{"id":273,"date":"2026-04-28","doctor":"HAZEL DENİZ ERDOĞAN","zone":"travma","shift":"aksam"},{"id":274,"date":"2026-04-29","doctor":"İBRAHİM ALTUNOK","zone":"nobet","shift":"gunduz"},{"id":275,"date":"2026-04-29","doctor":"MEHMET MUZAFFER İSLAM","zone":"musahade","shift":"gunduz"},{"id":276,"date":"2026-04-29","doctor":"SERKAN EMRE EROĞLU","zone":"yesil","shift":"gunduz"},{"id":277,"date":"2026-04-29","doctor":"DAMLA ÖZER İÇENLER","zone":"yesil","shift":"gunduz"},{"id":278,"date":"2026-04-29","doctor":"CELİL ALKAN","zone":"travma","shift":"gunduz"},{"id":279,"date":"2026-04-29","doctor":"İBRAHİM ALTUNOK","zone":"nobet","shift":"aksam"},{"id":280,"date":"2026-04-29","doctor":"İBRAHİM ALTUNOK","zone":"kirmizi","shift":"aksam"},{"id":281,"date":"2026-04-29","doctor":"DAMLA ÖZER İÇENLER","zone":"yesil","shift":"aksam"},{"id":282,"date":"2026-04-29","doctor":"CELİL ALKAN","zone":"travma","shift":"aksam"},{"id":283,"date":"2026-04-30","doctor":"SERDAR ÖZDEMİR","zone":"nobet","shift":"gunduz"},{"id":284,"date":"2026-04-30","doctor":"GÖKHAN AKSEL","zone":"musahade","shift":"gunduz"},{"id":285,"date":"2026-04-30","doctor":"MEHMET MUZAFFER İSLAM","zone":"sari","shift":"gunduz"},{"id":286,"date":"2026-04-30","doctor":"SERKAN EMRE EROĞLU","zone":"yesil","shift":"gunduz"},{"id":287,"date":"2026-04-30","doctor":"AYŞEN EKER MARANGOZ","zone":"yesil","shift":"gunduz"},{"id":288,"date":"2026-04-30","doctor":"HAZEL DENİZ ERDOĞAN","zone":"travma","shift":"gunduz"},{"id":289,"date":"2026-04-30","doctor":"SERDAR ÖZDEMİR","zone":"nobet","shift":"aksam"},{"id":290,"date":"2026-04-30","doctor":"ENİS ADEMOĞLU","zone":"kirmizi","shift":"aksam"},{"id":291,"date":"2026-04-30","doctor":"AYŞEN EKER MARANGOZ","zone":"yesil","shift":"aksam"},{"id":292,"date":"2026-04-30","doctor":"HAZEL DENİZ ERDOĞAN","zone":"travma","shift":"aksam"}]};
+
+
+// ── STATE ──────────────────────────────────────────────────────────
+// months: { "2026-04": { label, lists: { uzman:[...shifts], asistan:[...shifts] } } }
+let months = {};
+let activeMonth = null;
+let activeListType = 'hepsi'; // 'hepsi' | 'uzman' | 'asistan'
+let view = 'table';
+let fSrch='', fZn='', fShn='';
+let szVal = 'yesil';
+
+// ── STORAGE ────────────────────────────────────────────────────────
+async function save() { try { await window.storage.set(SK, JSON.stringify(months)); } catch(e){} }
+async function load() {
+  try { const r=await window.storage.get(SK); if(r&&r.value){months=JSON.parse(r.value);} }
+  catch(e){ months={}; }
+}
+
+// ── INIT ───────────────────────────────────────────────────────────
+async function init() {
+  await load();
+  if (PRELOADED_DATA && !months[PRELOADED_DATA.monthKey]) {
+    months[PRELOADED_DATA.monthKey] = { label: PRELOADED_DATA.label, lists: { uzman: PRELOADED_DATA.shifts, asistan: [] } };
+    setTimeout(() => save().catch(()=>{}), 200);
+  }
+  if (!activeMonth && Object.keys(months).length) {
+    const ks = Object.keys(months).sort();
+    activeMonth = ks[ks.length-1];
+  }
+  renderBar();
+  if(activeMonth) showMonth(activeMonth);
+}
+
+// ── NAME FORMAT ────────────────────────────────────────────────────
+function fn(n,listType) {
+  if(!n) return '';
+  const tl=s=>s.replace(/İ/g,'i').replace(/I/g,'ı').replace(/Ğ/g,'ğ').replace(/Ü/g,'ü').replace(/Ş/g,'ş').replace(/Ö/g,'ö').replace(/Ç/g,'ç').toLowerCase();
+  const cf=s=>{if(!s)return'';const m={'i':'İ','ı':'I','ğ':'Ğ','ü':'Ü','ş':'Ş','ö':'Ö','ç':'Ç'};return(m[s[0]]||s[0].toUpperCase())+tl(s.slice(1));};
+  const w=n.trim().split(/\s+/);
+  const formatted=w.length===1?w[0].toUpperCase():w.map((x,i)=>i===w.length-1?x.toUpperCase():cf(x)).join(' ');
+  const prefix=listType==='asistan'?'<span style="font-size:10px;color:#5dd8ff;font-weight:600;opacity:0.8">Dr. </span>':listType==='uzman'?'<span style="font-size:10px;color:#5de8a0;font-weight:600;opacity:0.8">Uzm. Dr. </span>':'';
+  return prefix+formatted;
+}
+function fnPlain(n){
+  if(!n) return '';
+  const tl=s=>s.replace(/İ/g,'i').replace(/I/g,'ı').replace(/Ğ/g,'ğ').replace(/Ü/g,'ü').replace(/Ş/g,'ş').replace(/Ö/g,'ö').replace(/Ç/g,'ç').toLowerCase();
+  const cf=s=>{if(!s)return'';const m={'i':'İ','ı':'I','ğ':'Ğ','ü':'Ü','ş':'Ş','ö':'Ö','ç':'Ç'};return(m[s[0]]||s[0].toUpperCase())+tl(s.slice(1));};
+  const w=n.trim().split(/\s+/);
+  return w.length===1?w[0].toUpperCase():w.map((x,i)=>i===w.length-1?x.toUpperCase():cf(x)).join(' ');
+}
+function eq(s){return s.replace(/'/g,"\\'")}
+
+// ── MONTH BAR ──────────────────────────────────────────────────────
+function renderBar() {
+  const bar=document.getElementById('monthBar');
+  const ks=Object.keys(months).sort();
+  if(!ks.length){bar.innerHTML='<span class="months-empty">Henüz ay yüklenmedi</span>';return;}
+  let h=ks.map(k=>`<div class="month-tab${k===activeMonth?' active':''}" onclick="showMonth('${k}')">${months[k].label}</div>`).join('');
+  if(activeMonth){
+    // Liste tipi seçici
+    const m=months[activeMonth];
+    const lists=m.lists||{uzman:m.shifts||[],asistan:[]};
+    const hasAsistan=(lists.asistan||[]).length>0;
+    const hasUzman=(lists.uzman||[]).length>0;
+    if(hasAsistan||hasUzman){
+      h+=`<div style="display:flex;gap:4px;margin-left:12px;align-items:center">`;
+      h+=`<div class="month-tab${activeListType==='hepsi'?' active':''}" onclick="setListType('hepsi')" style="font-size:11px">🔀 Hepsi</div>`;
+      if(hasUzman) h+=`<div class="month-tab${activeListType==='uzman'?' active':''}" onclick="setListType('uzman')" style="font-size:11px;color:#5de8a0">Uzm. Dr.</div>`;
+      if(hasAsistan) h+=`<div class="month-tab${activeListType==='asistan'?' active':''}" onclick="setListType('asistan')" style="font-size:11px;color:#5dd8ff">Asist. Dr.</div>`;
+      h+=`</div>`;
+    }
+    h+=`<div class="month-del" onclick="delMonth()" style="margin-left:auto">🗑 ${months[activeMonth]?.label||''} Sil</div>`;
+  }
+  bar.innerHTML=h;
+}
+function setListType(t){activeListType=t;renderBar();renderAll();}
+
+function showMonth(k) {
+  activeMonth=k; activeListType='hepsi'; renderBar();
+  document.getElementById('uploadArea').style.display='none';
+  document.getElementById('dataArea').style.display='block';
+  document.getElementById('addBtn').style.display='inline-flex';
+  fSrch='';fZn='';fShn='';
+  document.querySelectorAll('.fsel').forEach(s=>s.value='');
+  const sb=document.getElementById('searchBox'); if(sb) sb.value='';
+  renderAll();
+}
+
+async function delMonth() {
+  const p=prompt('🔐 Silme parolası:');
+  if(p!==PAROLA){alert('Hatalı parola!');return;}
+  if(!activeMonth||!confirm(`"${months[activeMonth].label}" silinsin mi?`)) return;
+  delete months[activeMonth]; await save();
+  const ks=Object.keys(months).sort();
+  activeMonth=ks.length?ks[ks.length-1]:null;
+  renderBar();
+  if(activeMonth){showMonth(activeMonth);}
+  else{document.getElementById('uploadArea').style.display='block';document.getElementById('dataArea').style.display='none';document.getElementById('addBtn').style.display='none';}
+}
+
+// ── FILE HANDLING ──────────────────────────────────────────────────
+function handleDrop(e){e.preventDefault();const f=e.dataTransfer.files[0];if(f)askAndProcess(f);}
+function handleFile(e){const f=e.target.files[0];if(f)askAndProcess(f);e.target.value='';}
+function triggerUpload(type){
+  document.getElementById('fiExcel').click();
+}
+
+function askUpload(){
+  // Ortadaki alana tıklanınca - direkt Excel yükleme sorusu sor
+  triggerUpload('excel');
+}
+
+let _pendingFile = null;
+function askAndProcess(file, forceType){
+  const parola = prompt('🔐 Yükleme parolası:');
+  if(parola!==PAROLA){alert('Hatalı parola!');return;}
+  _pendingFile = file;
+  document.getElementById('uploadTypeModal').classList.add('open');
+}
+function selectUploadType(lt, forceShift){
+  cm('uploadTypeModal');
+  if(!_pendingFile) return;
+  processFile(_pendingFile, lt, forceShift);
+  _pendingFile = null;
+}
+
+async function processFile(file, listType='uzman', forceShift=null) {
+  showParse(file.name);
+  try {
+    const ext = file.name.split('.').pop().toLowerCase();
+    setLog('Dosya okunuyor...');
+
+    if (!['xlsx','xls'].includes(ext)) {
+      hideParse();
+      showErr('Sadece Excel (.xlsx / .xls) destekleniyor.');
+      return;
+    }
+
+    setLog('Excel analiz ediliyor...');
+    const result = await parseExcelDirect(file, file.name, forceShift);
+    setLog(`✓ ${result.shifts.length} nöbet kaydı bulundu → ${result.label}`);
+
+    // Mevcut ay varsa listType'ı ekle/güncelle; yoksa yeni oluştur
+    if(!months[result.monthKey]){
+      months[result.monthKey] = { label: result.label, lists: { uzman:[], asistan:[] } };
+    }
+    if(!months[result.monthKey].lists){
+      // Eski format → yeni formata çevir
+      months[result.monthKey].lists = { uzman: months[result.monthKey].shifts||[], asistan:[] };
+      delete months[result.monthKey].shifts;
+    }
+    // Mevcut kayıtları koru, yeni kayıtlarla birleştir (gündüz + gece ayrı dosyalar için)
+    const existing = months[result.monthKey].lists[listType] || [];
+    const newKeys = new Set(result.shifts.map(s => `${s.date}|${s.doctor}|${s.zone}|${s.shift}`));
+    const kept = existing.filter(s => !newKeys.has(`${s.date}|${s.doctor}|${s.zone}|${s.shift}`));
+    months[result.monthKey].lists[listType] = [...kept, ...result.shifts];
+    activeMonth = result.monthKey;
+    activeListType = listType;
+
+    hideParse();
+    renderBar();
+    showMonth(result.monthKey);
+    setTimeout(() => { save().catch(e => console.warn('Storage:', e)); }, 100);
+
+  } catch(err) {
+    hideParse();
+    showErr('Hata: ' + (err.message || String(err)));
+    console.error(err);
+  }
+}
+
+// Excel'i SheetJS ile satır/sütun bazında doğrudan oku
+function parseExcelDirect(file, fname, forceShift) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = (e) => {
+      try {
+        const wb = XLSX.read(e.target.result, { type: 'array', cellText: true, cellDates: true });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true });
+
+        // ── Ay/yıl tespiti ──
+        const TR_MONTHS = {OCAK:1,ŞUBAT:2,MART:3,NİSAN:4,MAYIS:5,HAZİRAN:6,
+                           TEMMUZ:7,AĞUSTOS:8,EYLÜL:9,EKİM:10,KASIM:11,ARALIK:12};
+        const TR_LABEL  = {OCAK:'Ocak',ŞUBAT:'Şubat',MART:'Mart',NİSAN:'Nisan',
+                           MAYIS:'Mayıs',HAZİRAN:'Haziran',TEMMUZ:'Temmuz',
+                           AĞUSTOS:'Ağustos',EYLÜL:'Eylül',EKİM:'Ekim',
+                           KASIM:'Kasım',ARALIK:'Aralık'};
+
+        let year = null, monthNum = null, monthLabel = null;
+        // İlk 5 satırda "2026 NİSAN" gibi bir ifade ara
+        for (let i = 0; i < Math.min(5, rows.length); i++) {
+          const txt = (rows[i] || []).join(' ').toUpperCase();
+          const m = txt.match(/(\d{4})\s+(OCAK|ŞUBAT|MART|NİSAN|MAYIS|HAZİRAN|TEMMUZ|AĞUSTOS|EYLÜL|EKİM|KASIM|ARALIK)/);
+          if (m) { year = parseInt(m[1]); monthNum = TR_MONTHS[m[2]]; monthLabel = TR_LABEL[m[2]]; break; }
+          // Ters sıra: NİSAN 2026
+          const m2 = txt.match(/(OCAK|ŞUBAT|MART|NİSAN|MAYIS|HAZİRAN|TEMMUZ|AĞUSTOS|EYLÜL|EKİM|KASIM|ARALIK)\s+(\d{4})/);
+          if (m2) { year = parseInt(m2[2]); monthNum = TR_MONTHS[m2[1]]; monthLabel = TR_LABEL[m2[1]]; break; }
+        }
+        if (!year) { const now = new Date(); year = now.getFullYear(); monthNum = now.getMonth()+1; monthLabel = TR_LABEL[Object.keys(TR_MONTHS)[monthNum-1]]; }
+
+        const monthKey = `${year}-${String(monthNum).padStart(2,'0')}`;
+        const label = `${monthLabel} ${year}`;
+
+        // ── Sütun haritası ──
+        const ZONE_DETECT = [
+          {keys:['NÖBET SORUMLUSU','NOBET SORUMLUSU'], zone:'nobet'},
+          {keys:['KIRMIZI ALAN - MÜŞAHADE','KIRMIZI ALAN - MUSAHADE'], zone:'kirmizi'},
+          {keys:['KIRMIZI ALAN','KIRMIZI'], zone:'kirmizi'},
+          {keys:['MÜŞAHEDE SORUMLUSU','MÜŞAHADE SORUMLUSU','MÜŞAHEDE','MÜŞAHADE','MUSAHADE'], zone:'musahade'},
+          {keys:['SARI ALAN','SARI'], zone:'sari'},
+          {keys:['YEŞİL ALAN','YEŞİL','YESIL'], zone:'yesil'},
+          {keys:['TRAVMA'], zone:'travma'},
+        ];
+
+        const colMap = {};
+
+        // Dosyanın tek vardiya mı (asistan) yoksa çift vardiya mı (uzman) olduğunu bul
+        const fnameUpper = (fname||'').toUpperCase();
+        const allHeaderText = rows.slice(0,5).map(r=>(r||[]).join(' ')).join(' ').toUpperCase();
+        const combinedText = allHeaderText + ' ' + fnameUpper;
+        // GÜNDÜZ kelimesi açıkça var ve hem gündüz hem gece bölümü var mı?
+        const hasGunduzSection = allHeaderText.includes('GÜNDÜZ') && (allHeaderText.includes('GECE') || allHeaderText.includes('AKŞAM'));
+        // Tek vardiya: sadece AKŞAM veya sadece GÜNDÜZ (dosya adı da dahil)
+        const isSingleAksam = !allHeaderText.includes('GÜNDÜZ') &&
+                              (combinedText.includes('AKŞAM') || combinedText.includes('AKSAM') || combinedText.includes('GECE'));
+        const isSingleGunduz = !isSingleAksam && (allHeaderText.includes('GÜNDÜZ') || allHeaderText.includes('GUNDUZ')) && !allHeaderText.includes('GECE') && !allHeaderText.includes('AKŞAM');
+        const isDoubleShift = hasGunduzSection;
+
+        // Her sütun için shift: başlık satırlarında "GÜNDÜZ" veya "GECE/AKŞAM" geçen sütundan sağa doğru atama
+        const colShiftMap = {}; // ci → 'gunduz'|'aksam'
+        if (forceShift) {
+          // Kullanıcı açıkça belirtti: tüm sütunlar bu shift
+          for (let ci = 0; ci < 20; ci++) colShiftMap[ci] = forceShift;
+        } else if (isDoubleShift) {
+          // Başlık satırlarını tara ve shift sınırını bul
+          let gunduzBoundary = -1, geceBoundary = -1;
+          for (let ri = 0; ri < Math.min(4, rows.length); ri++) {
+            const row = rows[ri] || [];
+            for (let ci = 0; ci < row.length; ci++) {
+              const c = String(row[ci]||'').toUpperCase();
+              if (c.includes('GÜNDÜZ') || (c.includes('08:30') && c.includes('17:30'))) {
+                if (gunduzBoundary < 0) gunduzBoundary = ci;
+              }
+              if (c.includes('GECE') || c.includes('AKŞAM') || (c.includes('17:30') && c.includes('08:30') && !c.includes('GÜNDÜZ'))) {
+                if (geceBoundary < 0 && ci > gunduzBoundary) geceBoundary = ci;
+              }
+            }
+          }
+          // Sütunlara shift ata
+          for (let ci = 0; ci < 20; ci++) {
+            if (geceBoundary > 0 && ci >= geceBoundary) colShiftMap[ci] = 'aksam';
+            else if (gunduzBoundary >= 0 && ci >= gunduzBoundary) colShiftMap[ci] = 'gunduz';
+          }
+        } else {
+          // Tek vardiya dosyası
+          const singleShift = isSingleAksam ? 'aksam' : 'gunduz';
+          for (let ci = 0; ci < 20; ci++) colShiftMap[ci] = singleShift;
+        }
+
+        // Tarih sütununu ve veri başlangıç satırını otomatik bul
+        let dateCol = 0, dataStartRow = 3;
+        outer: for (let ri = 0; ri < Math.min(10, rows.length); ri++) {
+          const row = rows[ri] || [];
+          for (let ci = 0; ci < row.length; ci++) {
+            const v = row[ci];
+            if (typeof v === 'number' && v >= 1 && v <= 31) {
+              const next = String(row[ci+1]||'').toUpperCase().trim();
+              if (next.startsWith('ÇAR') || next.startsWith('PER') || next.startsWith('CUM') ||
+                  next.startsWith('PAZ') || next.startsWith('SAL')) {
+                dateCol = ci;
+                dataStartRow = ri;
+                break outer;
+              }
+            }
+          }
+        }
+
+        // Zone haritası: başlık satırlarından zone + shift
+        for (let ri = 0; ri < Math.min(dataStartRow + 1, rows.length); ri++) {
+          const row = rows[ri] || [];
+          for (let ci = 0; ci < row.length; ci++) {
+            const cell = String(row[ci] || '').toUpperCase().trim();
+            if (!cell || ci === dateCol || ci === dateCol + 1) continue;
+            for (const {keys, zone} of ZONE_DETECT) {
+              if (keys.some(k => cell.includes(k)) && !colMap[ci]) {
+                colMap[ci] = { zone, shift: colShiftMap[ci] || 'gunduz' };
+                break;
+              }
+            }
+          }
+        }
+
+        // Zone tespiti yapılamayan sütunları da yakala — header'da herhangi bir metin varsa ekle
+        for (let ri = 0; ri < Math.min(dataStartRow + 1, rows.length); ri++) {
+          const row = rows[ri] || [];
+          for (let ci = 0; ci < row.length; ci++) {
+            if (colMap[ci] || ci === dateCol || ci === dateCol + 1) continue;
+            const cell = String(row[ci] || '').toUpperCase().trim();
+            if (!cell || cell.length < 2) continue;
+            if (/^[\d\s\/\-\.:]+$/.test(cell)) continue; // sadece rakam/sembol → atla
+            // Geniş zone tahmini
+            let zone = 'yesil'; // varsayılan
+            if (cell.includes('KIRMIZI') || cell.includes('K.ALAN')) zone = 'kirmizi';
+            else if (cell.includes('SARI')) zone = 'sari';
+            else if (cell.includes('TRAVMA')) zone = 'travma';
+            else if (cell.includes('NÖBET') || cell.includes('NOBET') || cell.includes('SOR')) zone = 'nobet';
+            else if (cell.includes('MÜŞA') || cell.includes('MUSA') || cell.includes('GÖZLEM')) zone = 'musahade';
+            colMap[ci] = { zone, shift: colShiftMap[ci] || (isSingleAksam ? 'aksam' : 'gunduz') };
+          }
+        }
+
+        // Hiç bulunamazsa → sabit harita (tek vardiyada colShiftMap'i kullan)
+        if (Object.keys(colMap).length < 2) {
+          if (isDoubleShift) {
+            // Çift vardiya: uzman formatı (gündüz 2-7, gece 9-12)
+            Object.assign(colMap, {
+              2:{zone:'nobet',shift:'gunduz'}, 3:{zone:'musahade',shift:'gunduz'},
+              4:{zone:'sari',shift:'gunduz'},  5:{zone:'yesil',shift:'gunduz'},
+              6:{zone:'yesil',shift:'gunduz'}, 7:{zone:'travma',shift:'gunduz'},
+              9:{zone:'nobet',shift:'aksam'},  10:{zone:'kirmizi',shift:'aksam'},
+              11:{zone:'yesil',shift:'aksam'}, 12:{zone:'travma',shift:'aksam'},
+            });
+          } else {
+            // Tek vardiya: tüm sütunlar aynı shift (gündüz veya akşam/gece)
+            const sh = forceShift || colShiftMap[2] || (isSingleAksam ? 'aksam' : 'gunduz');
+            Object.assign(colMap, {
+              2:{zone:'nobet',shift:sh}, 3:{zone:'musahade',shift:sh},
+              4:{zone:'sari',shift:sh},  5:{zone:'yesil',shift:sh},
+              6:{zone:'yesil',shift:sh}, 7:{zone:'travma',shift:sh},
+              8:{zone:'kirmizi',shift:sh},
+            });
+          }
+        }
+
+        // ── Veri satırlarını işle ──
+        const shifts = [];
+        let idC = Date.now();
+
+        const cleanName = (v) => {
+          if (v === null || v === undefined) return [];
+          const txt = String(v).trim();
+          if (!txt || txt.length < 3) return [];
+          if (/^[\s\d\/\-\.:,*]+$/.test(txt)) return [];
+          if (/^(tarih|gün|nöbet|alan|vardiya|gece|gündüz|saat|sorumlu|müşahade|müşahede|kirmizi|sari|yesil|travma|e \*|^\s*[eab]\s*$)/i.test(txt)) return [];
+          if (/^(pazartesi|salı|çarşamba|perşembe|cuma|cumartesi|pazar)/i.test(txt)) return [];
+
+          // Tire ile ayrılmış iki doktor: "AD SOYAD - AD SOYAD"
+          const dashParts = txt.split(/\s*[-–]\s*/);
+          if (dashParts.length === 2 && dashParts[0].trim().length >= 4 && dashParts[1].trim().length >= 4
+              && /[a-zA-ZğüşöçıİĞÜŞÖÇ]/.test(dashParts[0]) && /[a-zA-ZğüşöçıİĞÜŞÖÇ]/.test(dashParts[1])) {
+            return dashParts.map(p => p.trim());
+          }
+
+          // Satır sonu ile ayrılmış birden fazla isim (Excel Alt+Enter → \n veya \r\n)
+          const byNewline = txt.split(/\r?\n/).map(s => s.trim()).filter(s => s.length >= 4 && /[a-zA-ZğüşöçıİĞÜŞÖÇ]/.test(s));
+          if (byNewline.length > 1) return byNewline;
+          // Tire/tire işareti yoksa, kelime sayısından bağımsız tek kişi olarak kabul et
+          if (!/[a-zA-ZğüşöçıİĞÜŞÖÇ]/.test(txt)) return [];
+          return [txt];
+        };
+
+        for (let ri = dataStartRow; ri < rows.length; ri++) {
+          const row = rows[ri] || [];
+          const dayVal = row[dateCol];
+          if (dayVal === null || dayVal === undefined) continue;
+          const day = parseInt(dayVal);
+          if (isNaN(day) || day < 1 || day > 31) continue;
+
+          const dateStr = `${year}-${String(monthNum).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+
+          for (const [ci, { zone, shift }] of Object.entries(colMap)) {
+            const names = cleanName(row[parseInt(ci)]);
+            for (const name of names) {
+              shifts.push({ id: idC++, date: dateStr, doctor: name.toUpperCase().trim(), zone, shift });
+            }
+          }
+        }
+
+        // Mükerrer temizle
+        const seen = new Set();
+        const unique = shifts.filter(s => {
+          const k = `${s.date}|${s.doctor}|${s.zone}|${s.shift}`;
+          if (seen.has(k)) return false;
+          seen.add(k); return true;
+        });
+
+        if (unique.length === 0) throw new Error('Nöbet verisi bulunamadı. Dosya yapısı tanınamadı.');
+
+        // Debug: hangi sütunlar algılandı
+        const colDebug = Object.entries(colMap).map(([ci,{zone,shift}])=>`Sütun${ci}→${zone}`).join(', ');
+        resolve({ monthKey, label, shifts: unique, colDebug, dateCol, dataStartRow });
+      } catch(err) { reject(err); }
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function toTxt(f){return new Promise((ok,er)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=er;r.readAsText(f,'UTF-8');});}
+
+
+// Metin/CSV içeriğini yerel olarak analiz et
+function parseTextLocally(txt, fname, forceShift) {
+  const lines = txt.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+  // Ay/yıl tespiti — dosya adından ve içerikten
+  let monthKey = null, label = null;
+  const TR_MONTHS = {
+    'ocak':1,'şubat':2,'subat':2,'mart':3,'nisan':4,'mayis':5,'mayıs':5,
+    'haziran':6,'temmuz':7,'agustos':8,'ağustos':8,'eylul':9,'eylül':9,
+    'ekim':10,'kasim':11,'kasım':11,'aralik':12,'aralık':12
+  };
+  const TR_MONTH_NAMES = ['','Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+
+  // Dosya adından ay/yıl çıkar (örn: "Nisan 2025", "04-2025", "2025-04")
+  const combined = (fname + ' ' + lines.slice(0,10).join(' ')).toLowerCase();
+  for (const [trName, mNum] of Object.entries(TR_MONTHS)) {
+    const rx = new RegExp(trName+'\\s*(\\d{4})', 'i');
+    const m = combined.match(rx);
+    if (m) {
+      const yr = parseInt(m[1]);
+      monthKey = `${yr}-${String(mNum).padStart(2,'0')}`;
+      label = `${TR_MONTH_NAMES[mNum]} ${yr}`;
+      break;
+    }
+  }
+  // Sayısal format: 2025-04 veya 04-2025 veya 04/2025
+  if (!monthKey) {
+    const numRx = combined.match(/(\d{4})[-\/](\d{1,2})|(\d{1,2})[-\/](\d{4})/);
+    if (numRx) {
+      const yr = parseInt(numRx[1]||numRx[4]), mo = parseInt(numRx[2]||numRx[3]);
+      if (yr > 2000 && mo >= 1 && mo <= 12) {
+        monthKey = `${yr}-${String(mo).padStart(2,'0')}`;
+        label = `${TR_MONTH_NAMES[mo]} ${yr}`;
+      }
+    }
+  }
+  if (!monthKey) {
+    // Bugünün ayını varsayılan olarak kullan
+    const now = new Date();
+    monthKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    label = `${TR_MONTH_NAMES[now.getMonth()+1]} ${now.getFullYear()}`;
+  }
+
+  const [yyyy, mm] = monthKey.split('-').map(Number);
+
+  // Alan eşleştirme
+  const zoneMap = {
+    'kirmizi':['kirmizi','kırmızı','kirmizi alan','red'],
+    'sari':['sari','sarı','sari alan','yellow'],
+    'yesil':['yesil','yeşil','yesil alan','green'],
+    'musahade':['musahade','müşahade','gözlem','gozlem','observation'],
+    'nobet':['nobet','nöbet','sorumluluk','sorumlu','nobet sorumlusu'],
+    'travma':['travma','trauma']
+  };
+  const shiftMap = {
+    'gunduz':['gunduz','gündüz','08:30','08.30','sabah','day'],
+    'aksam':['aksam','akşam','gece','17:30','17.30','night','evening'],
+    'sorumluluk':['sorumluluk','sorumlu','08:00','08.00']
+  };
+
+  function detectZone(cell) {
+    const c = (cell||'').toLowerCase();
+    for (const [z, keys] of Object.entries(zoneMap)) {
+      if (keys.some(k => c.includes(k))) return z;
+    }
+    return null;
+  }
+  function detectShift(cell) {
+    const c = (cell||'').toLowerCase();
+    for (const [s, keys] of Object.entries(shiftMap)) {
+      if (keys.some(k => c.includes(k))) return s;
+    }
+    return null;
+  }
+  function isDoctor(cell) {
+    if (!cell || cell.length < 3) return false;
+    const c = cell.trim();
+    // Doktor adı: büyük harfli, sayı içermez, nokta/tarih değil
+    if (/^\d/.test(c)) return false;
+    if (c.split(' ').length < 2) return false;
+    if (/^[\d\s\/:.-]+$/.test(c)) return false;
+    return true;
+  }
+
+  // CSV satırlarını parse et
+  const shifts = [];
+  let currentZone = 'yesil', currentShift = forceShift || 'gunduz';
+  let idCounter = Date.now();
+
+  // Önce sütun başlıklarını bul (zone ve shift bilgisi burada olabilir)
+  let headerRow = [];
+  for (let i = 0; i < Math.min(5, lines.length); i++) {
+    const cells = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g,''));
+    if (cells.length >= 3) { headerRow = cells; break; }
+  }
+
+  // Hangi sütunlar zone/shift, hangileri doktor?
+  const colZones = headerRow.map(h => detectZone(h));
+  const colShifts = headerRow.map(h => detectShift(h));
+  const hasStructuredHeaders = colZones.some(z => z !== null) || colShifts.some(s => s !== null);
+
+  for (const line of lines) {
+    const sep = line.includes('\t') ? '\t' : ',';
+    const cells = line.split(sep).map(c => c.trim().replace(/^"|"$/g, ''));
+    if (cells.length === 0) continue;
+
+    // Tarih tespiti: 1, 01, 1/4, 01.04, 2025-04-01 formatları
+    let dayNum = null;
+    const firstCell = cells[0];
+    const dayMatch = firstCell.match(/^(\d{1,2})([.\/-](\d{1,2})([.\/-](\d{2,4}))?)?$/);
+    if (dayMatch) {
+      const d = parseInt(dayMatch[1]);
+      if (d >= 1 && d <= 31) dayNum = d;
+    }
+
+    // Zone/shift güncelle
+    const lineText = cells.join(' ');
+    const lineZone = detectZone(lineText);
+    const lineShift = detectShift(lineText);
+    if (lineZone) currentZone = lineZone;
+    if (lineShift && !forceShift) currentShift = lineShift;
+
+    // Doktor adlarını topla
+    for (let ci = 0; ci < cells.length; ci++) {
+      const cell = cells[ci];
+      if (!isDoctor(cell)) continue;
+
+      const doctor = cell.toUpperCase().trim();
+      // Zone: önce sütun başlığından, sonra satır bağlamından
+      const zone = colZones[ci] || currentZone;
+      const shift = colShifts[ci] || currentShift;
+
+      // Tarihi belirle
+      let dateStr;
+      if (dayNum) {
+        dateStr = `${yyyy}-${String(mm).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
+      } else {
+        // Satırda gün yok, bu satırı doktor-bağlam satırı kabul et (tarihsiz ekle)
+        // Günü son geçerli günden çek veya atla
+        continue;
+      }
+
+      shifts.push({ id: idCounter++, date: dateStr, doctor, zone, shift });
+    }
+  }
+
+  if (shifts.length === 0) {
+    throw new Error(
+      'Nöbet verisi çıkarılamadı.\n\n' +
+      'Excel dosyanızın yapısına bakılıyor: Her satırda TAR\u0130H (1, 2, 3...) ve DOKTOR ADI bulunmalı.\n\n' +
+      'İpucu: Dosyayı Claude.ai sohbetine yükleyip "bu nöbet listesini JSON\'a çevir" yazarsanız, ' +
+      'JSON çıktısını buraya yapıştırabilirsiniz.'
+    );
+  }
+
+  // Mükerrerleri temizle
+  const seen = new Set();
+  const unique = shifts.filter(s => {
+    const key = `${s.date}|${s.doctor}|${s.zone}|${s.shift}`;
+    if (seen.has(key)) return false;
+    seen.add(key); return true;
+  });
+
+  return { monthKey, label, shifts: unique };
+}
+
+// ── PARSE UI ───────────────────────────────────────────────────────
+function showParse(n){
+  try {
+    document.getElementById('parseSub').textContent=`"${n}" okunuyor...`;
+    document.getElementById('parseLog').textContent='Hazırlanıyor...';
+    document.getElementById('parseOv').style.display='flex';
+  } catch(e){}
+}
+function hideParse(){
+  try { document.getElementById('parseOv').style.display='none'; } catch(e){}
+}
+function setLog(m){
+  try { document.getElementById('parseLog').textContent=m; } catch(e){}
+}
+
+// ── DATA ───────────────────────────────────────────────────────────
+function getAll(){
+  if(!activeMonth||!months[activeMonth]) return [];
+  const m=months[activeMonth];
+  const lists=m.lists||{uzman:m.shifts||[],asistan:[]};
+  if(activeListType==='uzman') return lists.uzman||[];
+  if(activeListType==='asistan') return lists.asistan||[];
+  return [...(lists.uzman||[]),...(lists.asistan||[])];
+}
+function getListType(s){
+  if(!activeMonth||!months[activeMonth]) return 'uzman';
+  const m=months[activeMonth];
+  const lists=m.lists||{uzman:m.shifts||[],asistan:[]};
+  if((lists.asistan||[]).some(x=>x.id===s.id)) return 'asistan';
+  return 'uzman';
+}
+function getFil(){
+  return getAll().filter(s=>{
+    const nm=fnPlain(s.doctor).toLowerCase();
+    return(!fSrch||nm.includes(fSrch.toLowerCase())||s.doctor.toLowerCase().includes(fSrch.toLowerCase()))&&
+      (!fZn||s.zone===fZn)&&(!fShn||s.shift===fShn);
+  });
+}
+
+// ── STATS ──────────────────────────────────────────────────────────
+function updateStats(){
+  const a=getAll();
+  document.getElementById('sTotal').textContent=a.length;
+  document.getElementById('sK').textContent=a.filter(s=>s.zone==='kirmizi').length;
+  document.getElementById('sS').textContent=a.filter(s=>s.zone==='sari').length;
+  document.getElementById('sY').textContent=a.filter(s=>s.zone==='yesil').length;
+}
+
+// ── RENDER ─────────────────────────────────────────────────────────
+function renderAll(){updateStats();if(view==='table')rTable();else if(view==='calendar')rCal();else rDocs();}
+function setView(v,btn){view=v;document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderAll();}
+function fS(v){fSrch=v;const cb=document.getElementById('searchClear');if(cb)cb.style.display=v?'block':'none';renderAll();}
+function clearSearch(){const sb=document.getElementById('searchBox');if(sb)sb.value='';fS('');}
+function fZ(v){fZn=v;renderAll();}
+function fSh(v){fShn=v;renderAll();}
+
+function fmtD(ds){const d=new Date(ds+'T12:00:00');return `${d.getDate()} ${MONTHS[d.getMonth()]}`;}
+function dayN(ds){return DAYS[new Date(ds+'T12:00:00').getDay()];}
+function isWk(ds){const d=new Date(ds+'T12:00:00').getDay();return d===0||d===6;}
+function zchip(z){return{kirmizi:'zk',sari:'zs',yesil:'zy',musahade:'zm',nobet:'zn',travma:'zt'}[z]||'zk';}
+
+// Aynı gün hem gündüz hem gece çalışanları hesapla (tüm ay verisi üzerinden)
+function build24hSet() {
+  const all = getAll();
+  const dayShifts = {};
+  all.forEach(s => {
+    const key = s.date + '|' + s.doctor;
+    if (!dayShifts[key]) dayShifts[key] = new Set();
+    dayShifts[key].add(s.shift);
+  });
+  const set24 = new Set();
+  Object.entries(dayShifts).forEach(([key, shifts]) => {
+    if (shifts.has('gunduz') && shifts.has('aksam')) set24.add(key);
+  });
+  return set24;
+}
+function is24h(date, doctor, set24) {
+  return set24.has(date + '|' + doctor);
+}
+
+function rTable(){
+  const data=[...getFil()].sort((a,b)=>a.date.localeCompare(b.date)||a.shift.localeCompare(b.shift));
+  if(!data.length){document.getElementById('content').innerHTML='<div class="empty-state"><div class="bi">🔍</div><h3>Sonuç yok</h3></div>';return;}
+  const set24 = build24hSet();
+  let h=`<div class="table-container"><table class="nt"><thead><tr><th>Tarih</th><th>Gün</th><th>Doktor</th><th>Alan</th><th>Vardiya</th><th></th></tr></thead><tbody>`;
+  data.forEach(s=>{
+    const wc=isWk(s.date)?(new Date(s.date+'T12:00:00').getDay()===0?'dp':'dcu'):'';
+    const badge24 = is24h(s.date, s.doctor, set24)
+      ? `<span title="24 saat nöbet" style="display:inline-flex;align-items:center;background:#e63946;color:#fff;border-radius:4px;padding:1px 6px;font-size:9px;font-weight:900;font-family:monospace;margin-left:5px;vertical-align:middle;box-shadow:0 0 6px rgba(230,57,70,0.4)">24</span>`
+      : '';
+    h+=`<tr${is24h(s.date,s.doctor,set24)?' style="background:rgba(255,179,64,0.04)"':''}>
+      <td class="dc">${fmtD(s.date)}</td><td class="dy ${wc}">${dayN(s.date)}</td>
+      <td><strong style="cursor:pointer;transition:color .15s" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color=''" onclick="showDoc('${eq(s.doctor)}')">${fn(s.doctor,getListType(s))}</strong>${badge24}</td>
+      <td><span class="chip ${zchip(s.zone)}">${ZL[s.zone]||s.zone}</span></td>
+      <td style="font-size:11px;color:var(--text-muted)">${SL[s.shift]||s.shift}</td>
+      <td><button onclick="delS(${s.id})" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;padding:4px 6px;border-radius:4px;transition:all .15s" onmouseover="this.style.color='#ff4d6d'" onmouseout="this.style.color='var(--text-muted)'">🗑</button></td></tr>`;
+  });
+  h+='</tbody></table></div>';
+  document.getElementById('content').innerHTML=h;
+}
+
+function rCal(){
+  const dm={};getFil().forEach(s=>{if(!dm[s.date])dm[s.date]=[];dm[s.date].push(s);});
+  const dates=Object.keys(dm).sort();
+  if(!dates.length){document.getElementById('content').innerHTML='<div class="empty-state"><div class="bi">📅</div><h3>Veri yok</h3></div>';return;}
+  const set24 = build24hSet();
+  const wks={};
+  dates.forEach(d=>{const dt=new Date(d+'T12:00:00'),ws=new Date(dt);ws.setDate(dt.getDate()-dt.getDay());const wk=ws.toISOString().split('T')[0];if(!wks[wk])wks[wk]={};wks[wk][d]=dm[d];});
+  const today=new Date().toISOString().split('T')[0];
+  let h='';
+  Object.keys(wks).sort().forEach(wk=>{
+    const wd=wks[wk],all=[];
+    for(let i=0;i<7;i++){const d=new Date(wk+'T12:00:00');d.setDate(d.getDate()+i);all.push(d.toISOString().split('T')[0]);}
+    h+=`<div class="cal-wrap"><div class="cal-head"><div style="text-align:left;padding-left:8px">Vardiya</div>`;
+    all.forEach(d=>{const dt=new Date(d+'T12:00:00'),isT=d===today,isW=dt.getDay()===0||dt.getDay()===6;
+      h+=`<div style="${isW?'color:var(--accent2)':''}">${isT?`<span class="today-b">${dt.getDate()}</span>`:dt.getDate()}<br><span style="font-size:9px">${DAYS[dt.getDay()].substring(0,3)}</span></div>`;});
+    h+='</div>';
+    [{k:'sorumluluk',l:'📋 08-17'},{k:'gunduz',l:'☀️ 08:30'},{k:'aksam',l:'🌙 17:30'}].forEach(({k,l})=>{
+      h+=`<div class="cal-row"><div class="cal-time">${l}</div>`;
+      all.forEach(d=>{h+=`<div class="cal-cell${d===today?' today-col':''}">`;
+        (wd[d]||[]).filter(s=>s.shift===k).forEach(s=>{
+          const has24 = is24h(s.date, s.doctor, set24);
+          h+=`<div class="chip ${zchip(s.zone)}" style="width:100%;margin:1px 0;justify-content:flex-start;${has24?'border-color:#ffb340;box-shadow:0 0 0 1px rgba(255,179,64,0.3)':''}" onclick="showDoc('${eq(s.doctor)}')" title="${fn(s.doctor)}${has24?' — 24 saat nöbet':''}">${has24?'⚡':''}${fnPlain(s.doctor).split(' ').pop()}</div>`;
+        });
+        h+='</div>';});
+      h+='</div>';});
+    h+='</div>';});
+  document.getElementById('content').innerHTML=h;
+}
+
+function rDocs(){
+  const dm={};
+  // Önce tüm kayıtları topla
+  getFil().forEach(s=>{if(!dm[s.doctor])dm[s.doctor]={n:0,zones:new Set(),shiftDays:new Set(),days:new Set()};dm[s.doctor].zones.add(s.zone);dm[s.doctor].shiftDays.add(s.date+'|'+s.shift);dm[s.doctor].days.add(s.date);});
+  Object.values(dm).forEach(d=>{d.n=d.days.size;});
+  // Benzersiz tarih+vardiya üzerinden saat hesapla
+  Object.values(dm).forEach(d=>{let h=0;d.shiftDays.forEach(k=>{const sh=k.split('|')[1];h+=sh==='aksam'?16:8;});d.hours=h;});
+  const set24=build24hSet();
+  // Her doktor için kaç gün 24 saat çalışmış
+  const doc24counts={};
+  getAll().forEach(s=>{
+    const k=s.date+'|'+s.doctor;
+    if(set24.has(k)){if(!doc24counts[s.doctor])doc24counts[s.doctor]=new Set();doc24counts[s.doctor].add(s.date);}
+  });
+  const lastName=n=>normTR(n.trim().split(/\s+/).pop());
+  const sorted=Object.entries(dm).sort((a,b)=>lastName(a[0]).localeCompare(lastName(b[0])));
+  if(!sorted.length){document.getElementById('content').innerHTML='<div class="empty-state"><div class="bi">👥</div><h3>Doktor yok</h3></div>';return;}
+  let h='<div class="doc-grid">';
+  sorted.forEach(([name,d])=>{
+    const ini=name.split(' ').filter(Boolean).slice(0,2).map(x=>x[0]).join('');
+    const days24=(doc24counts[name]||new Set()).size;
+    // Liste tipini bul
+    const allS=getAll(); const firstS=allS.find(x=>x.doctor===name);
+    const lt=firstS?getListType(firstS):'uzman';
+    h+=`<div class="doc-card" onclick="showDoc('${eq(name)}')">
+      <div class="doc-av">${ini}</div>
+      <div class="doc-nm">${fn(name,lt)}${days24>0?` <span style="font-size:10px;background:#e63946;color:#fff;border-radius:4px;padding:1px 6px;font-weight:900;font-family:monospace;box-shadow:0 0 6px rgba(230,57,70,0.4)">⚡${days24}×24</span>`:''}</div>
+      <div class="doc-ct">${d.n} gün · <span style="color:#c09aff">${d.hours} saat</span>${days24>0?` · <span style="color:#e63946;font-weight:700">${days24} gün 24S</span>`:''}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px">${[...d.zones].map(z=>`<span class="chip ${zchip(z)}">${ZL[z]||z}</span>`).join('')}</div>
+    </div>`;});
+  h+='</div>';
+  document.getElementById('content').innerHTML=h;
+}
+
+// ── DOCTOR MODAL ───────────────────────────────────────────────────
+function showDoc(name){
+  const shifts=getAll().filter(s=>s.doctor===name).sort((a,b)=>a.date.localeCompare(b.date));
+  const ini=name.split(' ').filter(Boolean).slice(0,2).map(x=>x[0]).join('');
+  const set24=build24hSet();
+  const zc={};shifts.forEach(s=>{zc[s.zone]=(zc[s.zone]||0)+1;});
+  const tot=new Set(shifts.map(s=>s.date)).size,gn=new Set(shifts.filter(s=>s.shift==='gunduz'||s.shift==='sorumluluk').map(s=>s.date)).size,ak=new Set(shifts.filter(s=>s.shift==='aksam').map(s=>s.date)).size;
+  // Aynı gün aynı vardiyada birden fazla alanda görünebilir → benzersiz tarih+vardiya sayısına göre hesapla
+  const uniqueShiftDays=new Set(shifts.map(s=>s.date+'|'+s.shift));
+  let uhGn=0,uhAk=0;
+  uniqueShiftDays.forEach(k=>{const sh=k.split('|')[1];if(sh==='aksam')uhAk++;else uhGn++;});
+  const totalHours=(uhGn*8)+(uhAk*16);
+  // Kaç gün 24 saat
+  const days24=new Set(shifts.filter(s=>set24.has(s.date+'|'+s.doctor)).map(s=>s.date)).size;
+  const pills=Object.entries(zc).map(([z,n])=>{const c=ZC[z]||{c:'#aaa',b:'#aaa',bg:'rgba(170,170,170,0.1)'};return`<div class="zpill" style="color:${c.c};border-color:${c.b};background:${c.bg}">${ZL[z]||z}<span class="pn">${n}</span></div>`;}).join('');
+  // Aynı günü tek kart: date bazında grupla
+  const byDate={};
+  shifts.forEach(s=>{if(!byDate[s.date])byDate[s.date]=[];byDate[s.date].push(s);});
+  const badge24html=`<span style="margin-left:auto;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;background:#e63946;color:#fff;font-size:10px;font-weight:900;font-family:'IBM Plex Mono',monospace;border-radius:6px;padding:3px 7px;letter-spacing:0.5px;box-shadow:0 0 8px rgba(230,57,70,0.5)">24</span>`;
+  const tl=Object.entries(byDate).sort(([a],[b])=>a.localeCompare(b)).map(([date,ds])=>{
+    const h24=set24.has(date+'|'+ds[0].doctor);
+    const dt=new Date(date+'T12:00:00');
+    ds.sort((a,b)=>{const o={sorumluluk:0,gunduz:1,aksam:2};return(o[a.shift]??3)-(o[b.shift]??3);});
+    const multi=ds.length>1;
+    let inner;
+    if(multi){
+      // Çok vardiyalı gün: tarih+badge üstte, her vardiya kendi satırında
+      const rows=ds.map(s=>{
+        const ic=s.shift==='gunduz'?'☀️':s.shift==='aksam'?'🌙':'📋';
+        const shiftShort=s.shift==='gunduz'?'Gündüz':s.shift==='aksam'?'Gece':'Sorumluluk';
+        return`<div style="display:flex;align-items:center;gap:6px;padding-top:5px;border-top:1px solid rgba(255,255,255,0.05)">
+          <span class="tlsh" style="min-width:90px">${ic} ${shiftShort}</span>
+          <span class="chip ${zchip(s.zone)}">${ZL[s.zone]||s.zone}</span>
+          <button class="tldel" style="margin-left:auto" onclick="delS(${s.id});cm('docModal')">🗑</button>
+        </div>`;}).join('');
+      inner=`<div style="display:flex;flex-direction:column;gap:0;width:100%">
+        <div style="display:flex;align-items:center;gap:8px;padding-bottom:5px">
+          <div><div class="tldtxt">${fmtD(date)}</div><div class="tlday">${DAYS[dt.getDay()].substring(0,3)}</div></div>
+          ${h24?badge24html:''}
+        </div>
+        ${rows}
+      </div>`;
+    } else {
+      // Tek vardiyalı gün: düz satır
+      const s=ds[0];
+      inner=`<div><div class="tldtxt">${fmtD(date)}</div><div class="tlday">${DAYS[dt.getDay()].substring(0,3)}</div></div>
+        <span class="chip ${zchip(s.zone)}">${ZL[s.zone]||s.zone}</span>
+        <span class="tlsh">${SL[s.shift]||s.shift}</span>
+        <button class="tldel" style="margin-left:auto" onclick="delS(${s.id});cm('docModal')">🗑</button>`;
+    }
+    return`<div class="tli"><div class="tll"><div class="tld" style="border-color:${h24?'#e63946':'var(--accent)'};background:${h24?'rgba(230,57,70,0.2)':'rgba(0,212,255,0.1)'}"></div><div class="tlln"></div></div><div class="tlr"><div class="tlc"${multi?' style="align-items:stretch;flex-direction:column"':''}${h24&&!multi?' style="border-color:rgba(230,57,70,0.3);background:rgba(230,57,70,0.04)"':h24?' style="border-color:rgba(230,57,70,0.3);background:rgba(230,57,70,0.04);align-items:stretch;flex-direction:column"':''}>${inner}</div></div></div>`;
+  }).join('');
+  const sAny=shifts[0];const docLt=sAny?getListType(sAny):'uzman';
+  const unvan=docLt==='asistan'?'<span style="font-size:11px;color:#5dd8ff;font-weight:600">Dr.</span> ':'<span style="font-size:11px;color:#5de8a0;font-weight:600">Uzm. Dr.</span> ';
+  document.getElementById('docMC').innerHTML=`
+    <div class="dmh"><div class="dmav">${ini}</div><div>
+      <div class="dmnm">${unvan}${fnPlain(name)}${days24>0?` <span style="font-size:11px;font-weight:900;font-family:monospace;background:#e63946;color:#fff;border-radius:4px;padding:1px 7px;box-shadow:0 0 6px rgba(230,57,70,0.4)">⚡${days24}×24</span>`:''}</div>
+      <div class="dmsb">${tot} gün nöbet${days24>0?` · <span style="color:#e63946;font-weight:700">${days24} gün 24 saat</span>`:''}</div>
+    </div><button class="dmcl" onclick="cm('docModal')">✕</button></div>
+    <div class="dmst">
+      <div class="dms"><div class="dmsv" style="color:var(--accent)">${tot}</div><div class="dmsl">Toplam Gün</div></div>
+      <div class="dms"><div class="dmsv" style="color:var(--accent4)">${gn}</div><div class="dmsl">Gündüz Gün</div></div>
+      <div class="dms"><div class="dmsv" style="color:var(--accent3)">${ak}</div><div class="dmsl">Gece Gün</div></div>
+      <div class="dms"><div class="dmsv" style="color:#c09aff">${totalHours}</div><div class="dmsl">Toplam Mesai (Saat)</div></div>
+    </div>
+    ${days24>0?`<div style="background:rgba(255,179,64,0.08);border-bottom:1px solid rgba(255,179,64,0.2);padding:10px 22px;display:flex;align-items:center;gap:8px;font-size:12px;color:#ffb340"><span style="font-size:18px">⚡</span><span><strong>${days24} gün</strong> hem gündüz hem gece nöbet — 24 saat kesintisiz çalışma</span></div>`:''}
+    <div class="dmb">
+      ${pills?`<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;font-weight:600">Alan Dağılımı</div><div class="zpills">${pills}</div><div class="sep"></div>`:''}
+      <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;font-weight:600">Nöbet Takvimi</div>
+      ${tot?`<div class="tl">${tl}</div>`:'<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px">Nöbet kaydı yok</div>'}
+    </div>`;
+  document.getElementById('docModal').classList.add('open');
+}
+
+// ── ADD / DELETE ───────────────────────────────────────────────────
+function showAddModal(){
+  if(!activeMonth)return;
+  const[y,m]=activeMonth.split('-');
+  document.getElementById('inDate').value=`${y}-${m}-01`;
+  document.getElementById('addModal').classList.add('open');
+}
+function sz(z,el){szVal=z;document.querySelectorAll('.zo').forEach(o=>o.classList.remove('sel'));el.classList.add('sel');}
+async function addShift(){
+  const doc=document.getElementById('inDoc').value.trim().toUpperCase();
+  const date=document.getElementById('inDate').value;
+  const shift=document.getElementById('inShift').value;
+  if(!doc||!date){alert('Doktor adı ve tarih zorunlu.');return;}
+  months[activeMonth].shifts.push({id:Date.now(),doctor:doc,date,shift,zone:szVal});
+  await save(); document.getElementById('inDoc').value=''; cm('addModal'); renderAll();
+}
+async function delS(id){
+  if(!activeMonth)return;
+  months[activeMonth].shifts=months[activeMonth].shifts.filter(s=>s.id!==id);
+  await save(); renderAll();
+}
+function cm(id){document.getElementById(id).classList.remove('open');}
+function showErr(msg){const e=document.getElementById('errB');if(e){e.textContent=msg;e.style.display='block';setTimeout(()=>e.style.display='none',7000);}}
+
+document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',function(e){if(e.target===this)this.classList.remove('open');}));
+
+init();
+</script>
+</body>
+</html>
