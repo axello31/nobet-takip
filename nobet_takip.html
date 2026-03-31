@@ -343,6 +343,7 @@ table.nt tr:last-child td { border-bottom:none; }
           <option value="gunduz">☀️ Gündüz (08:30-17:30)</option>
           <option value="aksam">🌙 Gece (17:30-08:30)</option>
           <option value="sorumluluk">📋 Sorumluluk (08:00-17:00)</option>
+          <option value="sorumluluk_gece">📋 Gece Sorumluluk (17:30-08:30)</option>
         </select>
       </div>
     </div>
@@ -422,7 +423,7 @@ const ZC = {
   nobet:{c:'#c09aff',b:'rgba(180,120,255,0.4)',bg:'rgba(180,120,255,0.12)'},
   travma:{c:'#ff9a5c',b:'rgba(255,154,92,0.4)',bg:'rgba(255,154,92,0.12)'}
 };
-const SL = {gunduz:'☀️ Gündüz 08:30–17:30',aksam:'🌙 Gece 17:30–08:30',sorumluluk:'📋 Sorumluluk 08:00–17:00'};
+const SL = {gunduz:'☀️ Gündüz 08:30–17:30',aksam:'🌙 Gece 17:30–08:30',sorumluluk:'📋 Sorumluluk 08:00–17:00',sorumluluk_gece:'📋 Gece Sor. 17:30–08:30'};
 const SK = 'nobet_v4';
 const PAROLA = 'Gaksel';
 
@@ -498,9 +499,9 @@ let fSrch='', fZn='', fShn='';
 let szVal = 'yesil';
 
 // ── STORAGE ────────────────────────────────────────────────────────
-async function save() { try { await window.storage.set(SK, JSON.stringify(months)); } catch(e){} }
-async function load() {
-  try { const r=await window.storage.get(SK); if(r&&r.value){months=JSON.parse(r.value);} }
+function save() { try { localStorage.setItem(SK, JSON.stringify(months)); } catch(e){} }
+function load() {
+  try { const r=localStorage.getItem(SK); if(r){months=JSON.parse(r);} }
   catch(e){ months={}; }
 }
 
