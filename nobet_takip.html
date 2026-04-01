@@ -253,7 +253,8 @@ table.nt tr:last-child td { border-bottom:none; }
 @media(max-width:400px){
   .doc-grid { grid-template-columns:1fr 1fr; }
   .stats-bar { grid-template-columns:repeat(2,1fr); }
-  .header-right .btn-sm:not(:last-child) { display:none; }
+  #addBtn { display:none !important; }
+  .header-right .btn-sm { font-size:11px; padding:6px 10px; }
 }
 </style>
 </head>
@@ -277,7 +278,10 @@ table.nt tr:last-child td { border-bottom:none; }
       <div class="header-right">
         <button class="btn btn-secondary btn-sm" id="addBtn" style="display:none" onclick="showAddModal()">➕ Nöbet Ekle</button>
         <button class="btn btn-primary btn-sm" onclick="triggerUpload('excel')">📊 Excel Yükle</button>
+        <button class="btn btn-secondary btn-sm" onclick="exportData()" title="Tüm veriyi JSON olarak indir">💾 Yedek Al</button>
+        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('fiJson').click()" title="JSON yedeği yükle">📥 Yedek Yükle</button>
         <input type="file" id="fiExcel" accept=".xlsx,.xls" style="display:none" onchange="handleFile(event)">
+        <input type="file" id="fiJson" accept=".json" style="display:none" onchange="importBackup(event)">
       </div>
     </div>
   </div>
@@ -511,6 +515,48 @@ function save() {
     console.error('KAYIT HATASI:', e);
     alert('Veri kaydedilemedi: ' + e.message);
   }
+}
+function exportData() {
+  if(!Object.keys(months).length){alert('Kaydedilmiş veri yok.');return;}
+  const data = JSON.stringify(months, null, 2);
+  const blob = new Blob([data], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'nobet_yedek_' + new Date().toISOString().split('T')[0] + '.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function importBackup(e) {
+  const file = e.target.files[0];
+  if(!file) return;
+  e.target.value = '';
+  const parola = prompt('🔐 Yükleme parolası:');
+  if(parola !== PAROLA){alert('Hatalı parola!');return;}
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if(typeof data !== 'object' || Array.isArray(data)) throw new Error('Geçersiz yedek formatı');
+      // Her ay için lists formatına çevir
+      Object.keys(data).forEach(k => {
+        if(data[k].shifts && !data[k].lists) {
+          data[k].lists = { uzman: data[k].shifts, asistan: [] };
+          delete data[k].shifts;
+        }
+      });
+      months = data;
+      save();
+      const ks = Object.keys(months).sort();
+      activeMonth = ks.length ? ks[ks.length-1] : null;
+      renderBar();
+      if(activeMonth) showMonth(activeMonth);
+      alert('✓ Yedek başarıyla yüklendi: ' + ks.map(k=>months[k].label||k).join(', '));
+    } catch(err) {
+      alert('Yedek yüklenemedi: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
 }
 function load() {
   try { const r=localStorage.getItem(SK); if(r){months=JSON.parse(r);} }
