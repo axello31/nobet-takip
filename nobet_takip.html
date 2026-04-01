@@ -277,6 +277,7 @@ table.nt tr:last-child td { border-bottom:none; }
       </div>
       <div class="header-right">
         <button class="btn btn-secondary btn-sm" id="addBtn" style="display:none" onclick="showAddModal()">➕ Nöbet Ekle</button>
+        <button class="btn btn-secondary btn-sm" id="syncBtn" onclick="manualSync()" title="Veriyi GitHub'a kaydet">☁️ Sync</button>
         <button class="btn btn-primary btn-sm" onclick="triggerUpload('excel')">📊 Excel Yükle</button>
         <input type="file" id="fiExcel" accept=".xlsx,.xls" style="display:none" onchange="handleFile(event)">
       </div>
@@ -434,6 +435,16 @@ const PAROLA = 'Gaksel';
 const GH_REPO = 'axello31/nobet-takip';
 const GH_FILE = 'data.json';
 const GH_TOKEN_SK = 'gh_token_v1';
+
+async function manualSync() {
+  const btn = document.getElementById('syncBtn');
+  btn.textContent = '⏳ Kaydediliyor...';
+  btn.disabled = true;
+  const ok = await ghSave();
+  btn.disabled = false;
+  if (ok) { btn.textContent = '✅ Kaydedildi'; setTimeout(()=>{ btn.textContent='☁️ Sync'; }, 2500); }
+  else { btn.textContent = '❌ Hata'; setTimeout(()=>{ btn.textContent='☁️ Sync'; }, 2500); }
+}
 
 function initToken() {
   const m = location.hash.match(/[#&]token=([^&]+)/);
