@@ -186,8 +186,9 @@ table.nt tr:last-child td { border-bottom:none; }
 .err-b { background:var(--red-zone); border:1px solid rgba(255,77,109,0.3); border-radius:8px; padding:10px 14px; font-size:12px; color:#ff7090; margin:10px 0; display:none; }
 
 @media(max-width:768px){
-  .cal-head,.cal-row{grid-template-columns:65px repeat(4,1fr);}
-  .cal-head>div:nth-child(n+6),.cal-row>div:nth-child(n+6){display:none;}
+  .cal-wrap{overflow-x:auto;}
+  .cal-head,.cal-row{grid-template-columns:52px repeat(7,minmax(44px,1fr));min-width:360px;}
+  .cal-head>div:nth-child(n+6),.cal-row>div:nth-child(n+6){display:block;}
   .fr2{grid-template-columns:1fr;}
 }
 
@@ -244,9 +245,9 @@ table.nt tr:last-child td { border-bottom:none; }
   .tlc { padding:8px 10px; gap:6px; }
 
   /* Calendar */
-  .cal-head,.cal-row { grid-template-columns:50px repeat(4,1fr); }
-  .cal-time { font-size:8px; padding:4px 2px; }
-  .cal-cell { min-height:36px; padding:2px; }
+  .cal-head,.cal-row { grid-template-columns:44px repeat(7,minmax(40px,1fr));min-width:324px; }
+  .cal-time { font-size:7px; padding:4px 2px; }
+  .cal-cell { min-height:32px; padding:2px; }
 }
 
 @media(max-width:400px){
