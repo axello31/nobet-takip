@@ -7,6 +7,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0a0e1a">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Acil Servis Nöbet Takip</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -499,10 +502,18 @@ let fSrch='', fZn='', fShn='';
 let szVal = 'yesil';
 
 // ── STORAGE ────────────────────────────────────────────────────────
-function save() { try { localStorage.setItem(SK, JSON.stringify(months)); } catch(e){} }
+function save() {
+  try {
+    const data = JSON.stringify(months);
+    localStorage.setItem(SK, data);
+  } catch(e) {
+    console.error('KAYIT HATASI:', e);
+    alert('Veri kaydedilemedi: ' + e.message);
+  }
+}
 function load() {
   try { const r=localStorage.getItem(SK); if(r){months=JSON.parse(r);} }
-  catch(e){ months={}; }
+  catch(e){ console.error('YÜKLENEMEDİ:', e); months={}; }
 }
 
 // ── INIT ───────────────────────────────────────────────────────────
@@ -674,10 +685,10 @@ async function processFile(file, listType='uzman', forceShift=null) {
     activeMonth = result.monthKey;
     activeListType = listType;
 
+    save(); // anında kaydet
     hideParse();
     renderBar();
     showMonth(result.monthKey);
-    setTimeout(() => { save(); }, 100);
 
   } catch(err) {
     hideParse();
