@@ -435,9 +435,17 @@ const GH_REPO = 'axello31/nobet-takip';
 const GH_FILE = 'data.json';
 const GH_TOKEN_SK = 'gh_token_v1';
 
+function initToken() {
+  const m = location.hash.match(/[#&]token=([^&]+)/);
+  if (m) {
+    localStorage.setItem(GH_TOKEN_SK, m[1]);
+    history.replaceState(null, '', location.pathname + location.search);
+  }
+}
+
 async function ghLoad() {
   try {
-    const r = await fetch('./data.json?_=' + Date.now());
+    const r = await fetch(`https://raw.githubusercontent.com/${GH_REPO}/main/${GH_FILE}?_=` + Date.now());
     if (!r.ok) return false;
     const data = await r.json();
     if (typeof data === 'object' && Object.keys(data).length > 0) {
@@ -612,6 +620,7 @@ function load() {
 
 // ── INIT ───────────────────────────────────────────────────────────
 async function init() {
+  initToken(); // URL hash'ten token al (varsa)
   // Önce GitHub'dan yükle (en güncel), olmazsa localStorage
   const fromGH = await ghLoad();
   if (!fromGH) {
