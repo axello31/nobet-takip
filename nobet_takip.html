@@ -278,10 +278,7 @@ table.nt tr:last-child td { border-bottom:none; }
       <div class="header-right">
         <button class="btn btn-secondary btn-sm" id="addBtn" style="display:none" onclick="showAddModal()">➕ Nöbet Ekle</button>
         <button class="btn btn-primary btn-sm" onclick="triggerUpload('excel')">📊 Excel Yükle</button>
-        <button class="btn btn-secondary btn-sm" onclick="exportData()" title="Tüm veriyi JSON olarak indir">💾 Yedek Al</button>
-        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('fiJson').click()" title="JSON yedeği yükle">📥 Yedek Yükle</button>
         <input type="file" id="fiExcel" accept=".xlsx,.xls" style="display:none" onchange="handleFile(event)">
-        <input type="file" id="fiJson" accept=".json" style="display:none" onchange="importBackup(event)">
       </div>
     </div>
   </div>
@@ -434,6 +431,56 @@ const ZC = {
 const SL = {gunduz:'☀️ Gündüz 08:30–17:30',aksam:'🌙 Gece 17:30–08:30',sorumluluk:'📋 Sorumluluk 08:00–17:00',sorumluluk_gece:'📋 Gece Sor. 17:30–08:30'};
 const SK = 'nobet_v4';
 const PAROLA = 'Gaksel';
+const GH_REPO = 'axello31/nobet-takip';
+const GH_FILE = 'data.json';
+const GH_TOKEN_SK = 'gh_token_v1';
+
+async function ghLoad() {
+  try {
+    const r = await fetch('./data.json?_=' + Date.now());
+    if (!r.ok) return false;
+    const data = await r.json();
+    if (typeof data === 'object' && Object.keys(data).length > 0) {
+      months = data;
+      return true;
+    }
+  } catch(e) {}
+  return false;
+}
+
+async function ghSave() {
+  let token = localStorage.getItem(GH_TOKEN_SK);
+  if (!token) {
+    token = prompt('GitHub token gir (bir kez yeterli, kaydedilecek):');
+    if (!token) return false;
+    localStorage.setItem(GH_TOKEN_SK, token.trim());
+    token = token.trim();
+  }
+  try {
+    // Mevcut dosyanın SHA'sını al
+    const info = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}`,
+      {headers: {'Authorization': 'token ' + token}});
+    const infoJson = await info.json();
+    const sha = infoJson.sha;
+    // Dosyayı güncelle
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(months))));
+    const res = await fetch(`https://api.github.com/repos/${GH_REPO}/contents/${GH_FILE}`, {
+      method: 'PUT',
+      headers: {'Authorization': 'token ' + token, 'Content-Type': 'application/json'},
+      body: JSON.stringify({message: 'Veri guncelle', content, sha})
+    });
+    if (res.ok) return true;
+    const err = await res.json();
+    if (err.message && err.message.includes('Bad credentials')) {
+      localStorage.removeItem(GH_TOKEN_SK);
+      alert('Token geçersiz, silindi. Tekrar deneyin.');
+    }
+    return false;
+  } catch(e) {
+    console.error('GitHub save error:', e);
+    return false;
+  }
+}
 
 // ── KNOWN DOCTORS ──────────────────────────────────────────────────
 const KNOWN_DOCTORS = [
@@ -565,10 +612,16 @@ function load() {
 
 // ── INIT ───────────────────────────────────────────────────────────
 async function init() {
-  await load();
-  if (PRELOADED_DATA && !months[PRELOADED_DATA.monthKey]) {
-    months[PRELOADED_DATA.monthKey] = { label: PRELOADED_DATA.label, lists: { uzman: PRELOADED_DATA.shifts, asistan: [] } };
-    setTimeout(() => save(), 200);
+  // Önce GitHub'dan yükle (en güncel), olmazsa localStorage
+  const fromGH = await ghLoad();
+  if (!fromGH) {
+    load();
+    if (PRELOADED_DATA && !months[PRELOADED_DATA.monthKey]) {
+      months[PRELOADED_DATA.monthKey] = { label: PRELOADED_DATA.label, lists: { uzman: PRELOADED_DATA.shifts, asistan: [] } };
+      save();
+    }
+  } else {
+    save(); // GitHub verisini localStorage'a da yaz (hızlı açılış için)
   }
   if (!activeMonth && Object.keys(months).length) {
     const ks = Object.keys(months).sort();
@@ -732,10 +785,18 @@ async function processFile(file, listType='uzman', forceShift=null) {
     activeMonth = result.monthKey;
     activeListType = listType;
 
-    save(); // anında kaydet
+    save(); // localStorage'a kaydet
     hideParse();
     renderBar();
     showMonth(result.monthKey);
+    // GitHub'a otomatik kaydet
+    setLog('GitHub\'a kaydediliyor...');
+    showParse('GitHub sync');
+    ghSave().then(ok => {
+      hideParse();
+      if (ok) { setLog('✓ GitHub\'a kaydedildi — tüm cihazlarda görünür'); showParse('ok'); setTimeout(hideParse, 2000); }
+      else { setLog('⚠ GitHub kaydı başarısız — sadece bu tarayıcıda saklı'); showParse('warn'); setTimeout(hideParse, 3000); }
+    });
 
   } catch(err) {
     hideParse();
