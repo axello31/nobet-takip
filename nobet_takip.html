@@ -1591,8 +1591,16 @@ function rQuery() {
   } else {
     // ── Uzman: tüm alanlar ──
     h += '<div style="display:flex;flex-direction:column;gap:10px">';
+    const nobetSorumlusu = result.filter(s => s.zone === 'nobet');
     ZONE_META.forEach(zm => {
-      const res = result.filter(s => s.zone === zm.k);
+      let res = result.filter(s => s.zone === zm.k);
+      // Gündüz şiftinde kırmızı alan ayrıca girilmez;
+      // nöbet sorumlusu aynı zamanda kırmızı alan sorumlusudur.
+      let extraNote = '';
+      if (zm.k === 'kirmizi' && qShift === 'gunduz' && res.length === 0 && nobetSorumlusu.length > 0) {
+        res = nobetSorumlusu;
+        extraNote = ' <span style="font-size:10px;opacity:.7;font-weight:400">(Nöbet Sor.)</span>';
+      }
       h += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden">`;
       h += `<div style="padding:9px 16px;background:${zm.bg};border-bottom:1px solid ${res.length?zm.b:'var(--border)'};display:flex;align-items:center;justify-content:space-between">`;
       h += `<span style="font-size:11px;font-weight:700;color:${zm.c};text-transform:uppercase;letter-spacing:1px">${zm.l}</span>`;
@@ -1603,7 +1611,7 @@ function rQuery() {
           const ini = s.doctor.split(' ').filter(Boolean).slice(0,2).map(x=>x[0]).join('');
           h += `<div style="padding:9px 16px;display:flex;align-items:center;gap:10px;${i<res.length-1?'border-bottom:1px solid rgba(255,255,255,0.04)':''}">`;
           h += `<div style="width:30px;height:30px;border-radius:50%;background:${zm.bg};border:1px solid ${zm.b};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:${zm.c};font-family:'IBM Plex Mono',monospace;flex-shrink:0">${ini}</div>`;
-          h += `<span style="font-size:13px;font-weight:600;cursor:pointer" onclick="showDoc('${eq(s.doctor)}')">${fnPlain(s.doctor)}</span>`;
+          h += `<span style="font-size:13px;font-weight:600;cursor:pointer" onclick="showDoc('${eq(s.doctor)}')">${fnPlain(s.doctor)}${extraNote}</span>`;
           h += '</div>';
         });
       } else {
