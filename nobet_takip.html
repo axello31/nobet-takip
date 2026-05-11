@@ -953,22 +953,52 @@ function parseExcelDirect(file, fname, forceShift) {
           }
         }
 
-        // Zone tespiti yapılamayan sütunları da yakala — header'da herhangi bir metin varsa ekle
-        for (let ri = 0; ri < Math.min(dataStartRow + 1, rows.length); ri++) {
-          const row = rows[ri] || [];
-          for (let ci = 0; ci < row.length; ci++) {
-            if (colMap[ci] || ci === dateCol || ci === dateCol + 1) continue;
-            const cell = String(row[ci] || '').toUpperCase().trim();
-            if (!cell || cell.length < 2) continue;
-            if (/^[\d\s\/\-\.:]+$/.test(cell)) continue; // sadece rakam/sembol → atla
-            // Geniş zone tahmini
-            let zone = 'yesil'; // varsayılan
-            if (cell.includes('KIRMIZI') || cell.includes('K.ALAN')) zone = 'kirmizi';
-            else if (cell.includes('SARI')) zone = 'sari';
-            else if (cell.includes('TRAVMA')) zone = 'travma';
-            else if (cell.includes('NÖBET') || cell.includes('NOBET') || cell.includes('SOR')) zone = 'nobet';
-            else if (cell.includes('MÜŞA') || cell.includes('MUSA') || cell.includes('GÖZLEM')) zone = 'musahade';
-            colMap[ci] = { zone, shift: colShiftMap[ci] || (isSingleAksam ? 'aksam' : 'gunduz') };
+        // Zone tespiti yapılamayan sütunları da yakala
+        // Birleşik (merged) başlık hücrelerini de doğru ata:
+        // Başlıksız ama veri dolu sütun → önceki sütunun zone'unu devral
+        {
+          const maxCi = Math.max(...Object.keys(colMap).map(Number), rows[0] ? rows[0].length - 1 : 15, 20);
+          let lastZone = null, lastShift = null;
+          for (let ci = 0; ci <= maxCi + 3; ci++) {
+            if (colMap[ci]) {
+              lastZone = colMap[ci].zone;
+              lastShift = colMap[ci].shift;
+              continue;
+            }
+            if (ci === dateCol || ci === dateCol + 1) continue;
+            const sh = colShiftMap[ci] || lastShift || (isSingleAksam ? 'aksam' : 'gunduz');
+
+            // Başlık satırlarından zone bulmaya çalış
+            let headerZone = null;
+            for (let ri = 0; ri < Math.min(dataStartRow + 1, rows.length); ri++) {
+              const cell = String((rows[ri] || [])[ci] || '').toUpperCase().trim();
+              if (!cell || cell.length < 2) continue;
+              if (/^[\d\s\/\-\.:]+$/.test(cell)) continue;
+              if (cell.includes('KIRMIZI') || cell.includes('K.ALAN')) headerZone = 'kirmizi';
+              else if (cell.includes('SARI')) headerZone = 'sari';
+              else if (cell.includes('TRAVMA')) headerZone = 'travma';
+              else if (cell.includes('NÖBET') || cell.includes('NOBET') || cell.includes('SOR')) headerZone = 'nobet';
+              else if (cell.includes('MÜŞA') || cell.includes('MUSA') || cell.includes('GÖZLEM')) headerZone = 'musahade';
+              else if (!headerZone) headerZone = 'yesil'; // header var ama tanınamadı → yeşil
+              if (headerZone) break;
+            }
+
+            // Bu sütunda doktor ismi gibi veri var mı?
+            let hasData = false;
+            for (let ri = dataStartRow; ri < Math.min(dataStartRow + 10, rows.length); ri++) {
+              const v = (rows[ri] || [])[ci];
+              if (v !== null && v !== undefined) {
+                const s = String(v).trim();
+                if (s.length > 3 && /[a-zA-ZğüşöçıİĞÜŞÖÇ]{3,}/.test(s)) { hasData = true; break; }
+              }
+            }
+
+            if (!hasData) { lastZone = null; lastShift = null; continue; } // boş sütun — zinciri kes
+
+            const zone = headerZone || lastZone || 'yesil';
+            colMap[ci] = { zone, shift: sh };
+            lastZone = zone;
+            lastShift = sh;
           }
         }
 
