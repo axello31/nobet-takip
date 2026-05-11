@@ -330,6 +330,7 @@ table.nt tr:last-child td { border-bottom:none; }
         <button class="tab-btn active" onclick="setView('table',this)">📋 Liste</button>
         <button class="tab-btn" onclick="setView('calendar',this)">📅 Takvim</button>
         <button class="tab-btn" onclick="setView('doctors',this)">👥 Doktorlar</button>
+        <button class="tab-btn" onclick="setView('sorgu',this)">🔍 Sorgula</button>
       </div>
     </div>
     <div class="err-b" id="errB"></div>
@@ -571,6 +572,10 @@ let activeListType = 'hepsi'; // 'hepsi' | 'uzman' | 'asistan'
 let view = 'table';
 let fSrch='', fZn='', fShn='';
 let szVal = 'yesil';
+let qType = 'asistan'; // 'asistan' | 'uzman'
+let qDate = '';
+let qShift = 'aksam';
+let qZone = 'kirmizi';
 
 // ── STORAGE ────────────────────────────────────────────────────────
 function save() {
@@ -728,7 +733,7 @@ function showMonth(k) {
   document.getElementById('uploadArea').style.display='none';
   document.getElementById('dataArea').style.display='block';
   document.getElementById('addBtn').style.display='inline-flex';
-  fSrch='';fZn='';fShn='';
+  fSrch='';fZn='';fShn='';qDate='';
   document.querySelectorAll('.fsel').forEach(s=>s.value='');
   const sb=document.getElementById('searchBox'); if(sb) sb.value='';
   renderAll();
@@ -1271,7 +1276,7 @@ function updateStats(){
 }
 
 // ── RENDER ─────────────────────────────────────────────────────────
-function renderAll(){updateStats();if(view==='table')rTable();else if(view==='calendar')rCal();else rDocs();}
+function renderAll(){updateStats();if(view==='table')rTable();else if(view==='calendar')rCal();else if(view==='sorgu')rQuery();else rDocs();}
 function setView(v,btn){view=v;document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderAll();}
 function fS(v){fSrch=v;const cb=document.getElementById('searchClear');if(cb)cb.style.display=v?'block':'none';renderAll();}
 function clearSearch(){const sb=document.getElementById('searchBox');if(sb)sb.value='';fS('');}
@@ -1485,6 +1490,133 @@ function cm(id){document.getElementById(id).classList.remove('open');}
 function showErr(msg){const e=document.getElementById('errB');if(e){e.textContent=msg;e.style.display='block';setTimeout(()=>e.style.display='none',7000);}}
 
 document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',function(e){if(e.target===this)this.classList.remove('open');}));
+
+// ── SORGULA ────────────────────────────────────────────────────────
+const ZONE_META = [
+  {k:'nobet',   l:'🟣 Nöbet Sor.',       c:'#c09aff', b:'rgba(180,120,255,0.3)', bg:'rgba(180,120,255,0.10)'},
+  {k:'kirmizi', l:'🔴 Kırmızı Alan',     c:'#ff7090', b:'rgba(255,77,109,0.3)',  bg:'rgba(255,77,109,0.10)'},
+  {k:'sari',    l:'🟡 Sarı Alan',         c:'#ffc55a', b:'rgba(255,179,64,0.3)',  bg:'rgba(255,179,64,0.10)'},
+  {k:'yesil',   l:'🟢 Yeşil Alan',        c:'#5de8a0', b:'rgba(57,217,138,0.3)', bg:'rgba(57,217,138,0.10)'},
+  {k:'musahade',l:'🔵 Müşahade',          c:'#5dd8ff', b:'rgba(0,212,255,0.3)',  bg:'rgba(0,212,255,0.10)'},
+  {k:'travma',  l:'🟠 Travma',            c:'#ff9a5c', b:'rgba(255,154,92,0.3)', bg:'rgba(255,154,92,0.10)'}
+];
+
+function rQuery() {
+  if (!activeMonth || !months[activeMonth]) {
+    document.getElementById('content').innerHTML='<div class="empty-state"><div class="bi">📭</div><h3>Ay verisi yok</h3></div>';
+    return;
+  }
+  const m = months[activeMonth];
+  const lists = m.lists || {uzman: m.shifts||[], asistan:[]};
+  const data = lists[qType] || [];
+
+  const dates = [...new Set(data.map(s => s.date))].sort();
+  if (!qDate && dates.length) qDate = dates[0];
+
+  const btnBase = 'font-family:\'IBM Plex Sans\',sans-serif;cursor:pointer;transition:all .2s;';
+
+  let h = '<div style="max-width:560px;margin:0 auto;padding-bottom:24px">';
+
+  // ── Tip seçici ──
+  h += '<div style="display:flex;gap:8px;margin-bottom:14px">';
+  [{k:'asistan',l:'👩‍⚕️ Asistan',c:'#5dd8ff',bc:'rgba(0,212,255,0.5)',bg:'rgba(0,212,255,0.09)'},
+   {k:'uzman',  l:'👨‍⚕️ Uzman',   c:'#5de8a0',bc:'rgba(57,217,138,0.5)',bg:'rgba(57,217,138,0.09)'}
+  ].forEach(t => {
+    const sel = qType === t.k;
+    h += `<button onclick="qType='${t.k}';qDate='';renderAll()" style="${btnBase}flex:1;padding:10px;border-radius:8px;border:2px solid ${sel?t.bc:'var(--border)'};background:${sel?t.bg:'var(--surface)'};color:${sel?t.c:'var(--text-muted)'};font-size:13px;font-weight:700">${t.l}</button>`;
+  });
+  h += '</div>';
+
+  // ── Tarih + Vardiya ──
+  h += '<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">';
+
+  h += '<select onchange="qDate=this.value;renderAll()" style="flex:1;min-width:140px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-family:\'IBM Plex Sans\',sans-serif;font-size:13px;outline:none">';
+  if (!dates.length) {
+    h += '<option value="">— Veri yok —</option>';
+  } else {
+    dates.forEach(d => {
+      const lbl = fmtD(d) + ' ' + DAYS[new Date(d+'T12:00:00').getDay()].substring(0,3);
+      h += `<option value="${d}"${d===qDate?' selected':''}>${lbl}</option>`;
+    });
+  }
+  h += '</select>';
+
+  h += '<div style="display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:3px">';
+  [['gunduz','☀️ Gündüz'],['aksam','🌙 Gece']].forEach(([k,l]) => {
+    const sel = qShift === k;
+    h += `<button onclick="qShift='${k}';renderAll()" style="${btnBase}padding:5px 14px;border-radius:6px;font-size:12px;font-weight:600;border:${sel?'1px solid var(--border)':'1px solid transparent'};background:${sel?'var(--surface2)':'transparent'};color:${sel?'var(--accent)':'var(--text-muted)'}">${l}</button>`;
+  });
+  h += '</div>';
+  h += '</div>';
+
+  if (!dates.length) {
+    h += '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:24px;text-align:center;color:var(--text-muted);font-size:13px">Bu liste türü için veri yüklenmemiş</div>';
+    h += '</div>';
+    document.getElementById('content').innerHTML = h;
+    return;
+  }
+
+  const result = data.filter(s => s.date === qDate && s.shift === qShift);
+
+  if (qType === 'asistan') {
+    // ── Alan seçici ──
+    h += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">';
+    ZONE_META.forEach(z => {
+      const sel = qZone === z.k;
+      h += `<button onclick="qZone='${z.k}';renderAll()" style="${btnBase}padding:5px 12px;border-radius:6px;border:2px solid ${sel?z.b:'var(--border)'};background:${sel?z.bg:'var(--surface)'};color:${sel?z.c:'var(--text-muted)'};font-size:11px;font-weight:600">${z.l}</button>`;
+    });
+    h += '</div>';
+
+    const zm = ZONE_META.find(z => z.k === qZone) || ZONE_META[0];
+    const res = result.filter(s => s.zone === qZone);
+
+    h += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden">`;
+    h += `<div style="padding:10px 16px;background:${zm.bg};border-bottom:1px solid ${zm.b};display:flex;align-items:center;justify-content:space-between">`;
+    h += `<span style="font-size:11px;font-weight:700;color:${zm.c};text-transform:uppercase;letter-spacing:1px">${zm.l}</span>`;
+    h += `<span style="font-size:11px;color:${zm.c};font-family:'IBM Plex Mono',monospace">${res.length} asistan</span>`;
+    h += '</div>';
+    if (res.length) {
+      res.forEach((s,i) => {
+        const ini = s.doctor.split(' ').filter(Boolean).slice(0,2).map(x=>x[0]).join('');
+        h += `<div style="padding:10px 16px;display:flex;align-items:center;gap:10px;${i<res.length-1?'border-bottom:1px solid rgba(255,255,255,0.04)':''}">`;
+        h += `<div style="width:30px;height:30px;border-radius:50%;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.2);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--accent);font-family:'IBM Plex Mono',monospace;flex-shrink:0">${ini}</div>`;
+        h += `<span style="font-size:13px;font-weight:600;cursor:pointer" onclick="showDoc('${eq(s.doctor)}')">${fnPlain(s.doctor)}</span>`;
+        h += '</div>';
+      });
+    } else {
+      h += '<div style="padding:20px 16px;text-align:center;color:var(--text-muted);font-size:13px">Bu vardiyada bu alanda asistan yok</div>';
+    }
+    h += '</div>';
+
+  } else {
+    // ── Uzman: tüm alanlar ──
+    h += '<div style="display:flex;flex-direction:column;gap:10px">';
+    ZONE_META.forEach(zm => {
+      const res = result.filter(s => s.zone === zm.k);
+      h += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden">`;
+      h += `<div style="padding:9px 16px;background:${zm.bg};border-bottom:1px solid ${res.length?zm.b:'var(--border)'};display:flex;align-items:center;justify-content:space-between">`;
+      h += `<span style="font-size:11px;font-weight:700;color:${zm.c};text-transform:uppercase;letter-spacing:1px">${zm.l}</span>`;
+      if (res.length) h += `<span style="font-size:11px;color:${zm.c};font-family:'IBM Plex Mono',monospace">${res.length} uzman</span>`;
+      h += '</div>';
+      if (res.length) {
+        res.forEach((s,i) => {
+          const ini = s.doctor.split(' ').filter(Boolean).slice(0,2).map(x=>x[0]).join('');
+          h += `<div style="padding:9px 16px;display:flex;align-items:center;gap:10px;${i<res.length-1?'border-bottom:1px solid rgba(255,255,255,0.04)':''}">`;
+          h += `<div style="width:30px;height:30px;border-radius:50%;background:${zm.bg};border:1px solid ${zm.b};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:${zm.c};font-family:'IBM Plex Mono',monospace;flex-shrink:0">${ini}</div>`;
+          h += `<span style="font-size:13px;font-weight:600;cursor:pointer" onclick="showDoc('${eq(s.doctor)}')">${fnPlain(s.doctor)}</span>`;
+          h += '</div>';
+        });
+      } else {
+        h += '<div style="padding:8px 16px;color:var(--text-muted);font-size:12px">— Atama yok —</div>';
+      }
+      h += '</div>';
+    });
+    h += '</div>';
+  }
+
+  h += '</div>';
+  document.getElementById('content').innerHTML = h;
+}
 
 init();
 </script>
