@@ -1556,7 +1556,9 @@ function rQuery() {
     return;
   }
 
-  const result = data.filter(s => s.date === qDate && s.shift === qShift);
+  // Gündüz = gunduz + sorumluluk; Gece = aksam + sorumluluk_gece
+  const shiftKeys = qShift === 'gunduz' ? ['gunduz','sorumluluk'] : ['aksam','sorumluluk_gece'];
+  const result = data.filter(s => s.date === qDate && shiftKeys.includes(s.shift));
 
   if (qType === 'asistan') {
     // ── Alan seçici ──
