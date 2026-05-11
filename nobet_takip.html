@@ -979,7 +979,8 @@ function parseExcelDirect(file, fname, forceShift) {
               else if (cell.includes('TRAVMA')) headerZone = 'travma';
               else if (cell.includes('NÖBET') || cell.includes('NOBET') || cell.includes('SOR')) headerZone = 'nobet';
               else if (cell.includes('MÜŞA') || cell.includes('MUSA') || cell.includes('GÖZLEM')) headerZone = 'musahade';
-              else if (!headerZone) headerZone = 'yesil'; // header var ama tanınamadı → yeşil
+              else if (cell.includes('YEŞİL') || cell.includes('YESIL')) headerZone = 'yesil';
+              // Tanınamayan metin (isim gibi görünen) → headerZone null bırak, önceki zone devralınır
               if (headerZone) break;
             }
 
