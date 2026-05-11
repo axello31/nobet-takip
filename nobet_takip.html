@@ -1261,8 +1261,12 @@ function getListType(s){
 function getFil(){
   return getAll().filter(s=>{
     const nm=fnPlain(s.doctor).toLowerCase();
-    return(!fSrch||nm.includes(fSrch.toLowerCase())||s.doctor.toLowerCase().includes(fSrch.toLowerCase()))&&
-      (!fZn||s.zone===fZn)&&(!fShn||s.shift===fShn);
+    const nameMatch=!fSrch||nm.includes(fSrch.toLowerCase())||s.doctor.toLowerCase().includes(fSrch.toLowerCase());
+    // Gündüz nöbet sorumlusu aynı zamanda kırmızı alan sorumlusudur
+    const isVirtualKirmizi = fZn==='kirmizi' && s.zone==='nobet' && ['gunduz','sorumluluk'].includes(s.shift);
+    const zoneMatch=!fZn||s.zone===fZn||isVirtualKirmizi;
+    const shiftMatch=!fShn||s.shift===fShn;
+    return nameMatch&&zoneMatch&&shiftMatch;
   });
 }
 
