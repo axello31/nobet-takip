@@ -122,6 +122,9 @@ table.nt tr:last-child td { border-bottom:none; }
 .mp { padding:22px; }
 .mt { font-size:17px; font-weight:700; margin-bottom:16px; display:flex; align-items:center; gap:10px; }
 .mc { margin-left:auto; background:var(--surface2); border:1px solid var(--border); color:var(--text-muted); cursor:pointer; font-size:13px; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; transition:all .15s; flex-shrink:0; }
+.tnav { background:var(--surface2); border:1px solid var(--border); color:var(--text); cursor:pointer; font-size:20px; line-height:1; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; transition:all .15s; flex-shrink:0; padding:0; }
+.tnav:hover:not(:disabled) { background:var(--accent4,#39d98a); color:#04130c; border-color:transparent; }
+.tnav:disabled { opacity:.22; cursor:default; }
 .mc:hover { background:var(--red-zone); color:var(--accent2); border-color:var(--accent2); }
 .fr { margin-bottom:13px; }
 .fl { font-size:11px; color:var(--text-muted); margin-bottom:5px; display:block; font-weight:600; text-transform:uppercase; letter-spacing:.5px; }
@@ -348,8 +351,16 @@ table.nt tr:last-child td { border-bottom:none; }
 <!-- BUGÜN MODAL -->
 <div class="overlay" id="todayModal">
   <div class="modal"><div class="mp">
-    <div class="mt">📍 Bugün Nöbetçi <button class="mc" onclick="cm('todayModal')">✕</button></div>
-    <div id="todayDate" style="font-size:12px;color:var(--text-muted);font-family:'IBM Plex Mono',monospace;margin:-8px 0 16px"></div>
+    <div class="mt">
+      <button id="todayPrev" class="tnav" onclick="navToday(-1)" title="Önceki gün">‹</button>
+      <span id="todayTitle">📍 Bugün Nöbetçi</span>
+      <button id="todayNext" class="tnav" onclick="navToday(1)" title="Sonraki gün">›</button>
+      <button class="mc" onclick="cm('todayModal')">✕</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;margin:-8px 0 16px">
+      <span id="todayDate" style="font-size:12px;color:var(--text-muted);font-family:'IBM Plex Mono',monospace"></span>
+      <button id="todayBackBtn" onclick="todayGoToday()" style="display:none;margin-left:auto;font-size:11px;padding:3px 11px;border-radius:20px;background:linear-gradient(135deg,#39d98a,#2bb673);color:#04130c;border:none;font-weight:700;cursor:pointer">📍 Bugüne dön</button>
+    </div>
     <div id="todayBody"></div>
   </div></div>
 </div>
@@ -1574,9 +1585,9 @@ function cm(id){document.getElementById(id).classList.remove('open');}
 function showErr(msg){const e=document.getElementById('errB');if(e){e.textContent=msg;e.style.display='block';setTimeout(()=>e.style.display='none',7000);}}
 
 // ── BUGÜN NÖBETÇİLERİ ──────────────────────────────────────────────
-// Bugünün nöbetçilerini tüm yüklü aylardan toplar (aktif ay hangisi olursa olsun çalışır)
-function todayShifts(){
-  const t=ymd(new Date()), out=[];
+// Belirli bir tarihin nöbetçilerini tüm yüklü aylardan toplar (aktif ay hangisi olursa olsun çalışır)
+function shiftsForDate(t){
+  const out=[];
   Object.values(months||{}).forEach(m=>{
     const L=m.lists||{uzman:m.shifts||[],asistan:[]};
     (L.uzman||[]).forEach(s=>{if(s.date===t)out.push(Object.assign({_lt:'uzman'},s));});
@@ -1584,11 +1595,37 @@ function todayShifts(){
   });
   return out;
 }
+function todayShifts(){ return shiftsForDate(ymd(new Date())); }
+
+// Modalda gösterilen gün ('YYYY-MM-DD'). Oklarla aynı ay içinde gezilir.
+let todayViewDate=null;
+
 function showToday(){
-  const dt=parseYMD(ymd(new Date()));
+  todayViewDate=ymd(new Date());
+  renderToday();
+  document.getElementById('todayModal').classList.add('open');
+}
+function navToday(delta){
+  const cur=parseYMD(todayViewDate), mn=cur.getMonth();
+  cur.setDate(cur.getDate()+delta);
+  if(cur.getMonth()!==mn) return; // ay sınırını aşma — ay başı/sonunda dur
+  todayViewDate=ymd(cur);
+  renderToday();
+}
+function todayGoToday(){ todayViewDate=ymd(new Date()); renderToday(); }
+
+function renderToday(){
+  const dt=parseYMD(todayViewDate);
+  const isToday=todayViewDate===ymd(new Date());
   const dateLbl=`${dt.getDate()} ${MONTHS[dt.getMonth()]} ${dt.getFullYear()} · ${DAYS[dt.getDay()]}`;
+  document.getElementById('todayTitle').textContent=isToday?'📍 Bugün Nöbetçi':'🗓️ Nöbet Listesi';
   document.getElementById('todayDate').textContent=dateLbl;
-  const shifts=todayShifts();
+  document.getElementById('todayBackBtn').style.display=isToday?'none':'inline-block';
+  // Ay ilk/son gününde ilgili ok pasif
+  const lastOfMonth=new Date(dt.getFullYear(),dt.getMonth()+1,0).getDate();
+  document.getElementById('todayPrev').disabled=(dt.getDate()===1);
+  document.getElementById('todayNext').disabled=(dt.getDate()===lastOfMonth);
+  const shifts=shiftsForDate(todayViewDate);
   // Bir vardiya bölümünü (Gündüz/Gece) alanlara göre gruplayıp çizer
   const section=(title,sub,keys)=>{
     const list=shifts.filter(s=>keys.includes(s.shift));
@@ -1622,14 +1659,13 @@ function showToday(){
   if(!shifts.length){
     h=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:34px 20px;text-align:center">
       <div style="font-size:34px;margin-bottom:10px">🗓️</div>
-      <div style="color:var(--text);font-size:14px;font-weight:600;margin-bottom:4px">Bugün için nöbet kaydı yok</div>
+      <div style="color:var(--text);font-size:14px;font-weight:600;margin-bottom:4px">${isToday?'Bugün için nöbet kaydı yok':'Bu gün için nöbet kaydı yok'}</div>
       <div style="color:var(--text-muted);font-size:12px">${dateLbl} tarihine ait yüklü veri bulunamadı.</div></div>`;
   } else {
     h=section('☀️ Gündüz','08:30–17:30',['gunduz','sorumluluk'])
      +section('🌙 Gece','17:30–08:30',['aksam','sorumluluk_gece']);
   }
   document.getElementById('todayBody').innerHTML=h;
-  document.getElementById('todayModal').classList.add('open');
 }
 
 document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',function(e){if(e.target===this)this.classList.remove('open');}));
