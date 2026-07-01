@@ -1068,6 +1068,13 @@ function parseExcelDirect(file, fname, forceShift) {
           if (/^[\s\d\/\-\.:,*]+$/.test(txt)) return [];
           if (/^(tarih|gün|nöbet|alan|vardiya|gece|gündüz|saat|sorumlu|müşahade|müşahede|kirmizi|sari|yesil|travma|e \*|^\s*[eab]\s*$)/i.test(txt)) return [];
           if (/^(pazartesi|salı|çarşamba|perşembe|cuma|cumartesi|pazar)/i.test(txt)) return [];
+          // Onaylayan/imza bloğundaki unvanlar nöbetçi değildir — listeye alma
+          // (Başhekim Yardımcısı, Acil Tıp Kliniği Eğitim/İdari Sorumlusu vb.)
+          const _norm = txt
+            .replace(/[İIı]/g,'i').replace(/[Şş]/g,'s').replace(/[Ğğ]/g,'g')
+            .replace(/[Üü]/g,'u').replace(/[Öö]/g,'o').replace(/[Çç]/g,'c')
+            .toLowerCase();
+          if (/bashek|sorumlusu|yardimcisi|bashemsire|klinigi|mudur|başhemşire/.test(_norm)) return [];
 
           // Tire ile ayrılmış iki doktor: "AD SOYAD - AD SOYAD"
           const dashParts = txt.split(/\s*[-–]\s*/);
