@@ -1511,26 +1511,26 @@ function showDocSelect(){
   renderDocSelect('');
   document.getElementById('docSelectModal').classList.add('open');
 }
+// Dipnot işaretlerini (**), fazla boşlukları temizle → aynı kişinin varyantları birleşsin
+function cleanDocName(n){return String(n||'').replace(/\*+/g,'').replace(/\s+/g,' ').trim();}
 function renderDocSelect(q){
   const m=months[activeMonth];
   const lists=(m&&m.lists)||{uzman:(m&&m.shifts)||[],asistan:[]};
   const uzSrc=lists.uzman||[], asSrc=lists.asistan||[];
-  const uzNames=[...new Set(uzSrc.map(s=>s.doctor))];
-  const asNames=[...new Set(asSrc.map(s=>s.doctor))];
+  // Benzersiz doktor adları (temizlenmiş + normTR anahtarıyla dedup)
+  const uniq=arr=>{const map=new Map();arr.forEach(s=>{const c=cleanDocName(s.doctor);if(c&&!map.has(normTR(c)))map.set(normTR(c),c);});return[...map.values()];};
+  const uzNames=uniq(uzSrc), asNames=uniq(asSrc);
   const lastName=n=>normTR(n.trim().split(/\s+/).pop());
   const byLast=(a,b)=>lastName(a).localeCompare(lastName(b),'tr');
   const isGokhan=n=>normTR(n)==='GOKHAN AKSEL';
   const query=normTR(q||'').trim();
   const match=n=>!query||normTR(n).includes(query);
-  // Gökhan Aksel'i her zaman en başa sabitle
+  // Gökhan Aksel her grubun (kendi grubunun) en üstünde sabit
   const gUz=uzNames.find(isGokhan), gAs=asNames.find(isGokhan);
-  const gokhan=gUz||gAs;
-  const gokhanLt=gUz?'uzman':'asistan';
-  const gokhanSrc=gUz?uzSrc:asSrc;
-  const uzSorted=uzNames.filter(n=>!isGokhan(n)).sort(byLast);
-  const asSorted=asNames.filter(n=>!isGokhan(n)).sort(byLast);
+  const uzList=[...(gUz?[gUz]:[]),...uzNames.filter(n=>!isGokhan(n)).sort(byLast)];
+  const asList=[...(gAs?[gAs]:[]),...asNames.filter(n=>!isGokhan(n)).sort(byLast)];
   const row=(name,lt,src)=>{
-    const days=new Set(src.filter(s=>s.doctor===name).map(s=>s.date)).size;
+    const days=new Set(src.filter(s=>cleanDocName(s.doctor)===name).map(s=>s.date)).size;
     const ini=name.split(' ').filter(Boolean).slice(0,2).map(x=>x[0]).join('');
     const tColor=lt==='asistan'?'#5dd8ff':'#5de8a0';
     const tLabel=lt==='asistan'?'Dr.':'Uzm. Dr.';
@@ -1542,8 +1542,7 @@ function renderDocSelect(q){
   };
   const hdr=t=>`<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin:12px 0 8px">${t}</div>`;
   let h='';
-  if(gokhan&&match(gokhan)) h+=row(gokhan,gokhanLt,gokhanSrc);
-  const uzShow=uzSorted.filter(match), asShow=asSorted.filter(match);
+  const uzShow=uzList.filter(match), asShow=asList.filter(match);
   if(uzShow.length){h+=hdr('Uzman Doktorlar');uzShow.forEach(n=>h+=row(n,'uzman',uzSrc));}
   if(asShow.length){h+=hdr('Asistan / Pratisyen Doktorlar');asShow.forEach(n=>h+=row(n,'asistan',asSrc));}
   if(!h)h='<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:13px">Sonuç bulunamadı</div>';
@@ -1552,7 +1551,8 @@ function renderDocSelect(q){
 
 // ── DOCTOR MODAL ───────────────────────────────────────────────────
 function showDoc(name){
-  const shifts=getMonthAll().filter(s=>s.doctor===name).sort((a,b)=>a.date.localeCompare(b.date));
+  name=cleanDocName(name);
+  const shifts=getMonthAll().filter(s=>cleanDocName(s.doctor)===name).sort((a,b)=>a.date.localeCompare(b.date));
   const ini=name.split(' ').filter(Boolean).slice(0,2).map(x=>x[0]).join('');
   const set24=build24hSet();
   const zc={};shifts.forEach(s=>{zc[s.zone]=(zc[s.zone]||0)+1;});
