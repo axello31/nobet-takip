@@ -286,6 +286,7 @@ table.nt tr:last-child td { border-bottom:none; }
       </div>
       <div class="header-right">
         <button class="btn btn-sm" onclick="showToday()" title="Bugünün nöbetçileri" style="background:linear-gradient(135deg,#39d98a,#2bb673);color:#04130c;font-weight:800">📍 Bugün</button>
+        <button class="btn btn-sm" onclick="showDocSelect()" title="Doktor seç ve nöbetlerini gör" style="background:linear-gradient(135deg,#a259ff,#7d3ce0);color:#fff;font-weight:800">👨‍⚕️ Dr Seç</button>
         <button class="btn btn-secondary btn-sm" id="addBtn" style="display:none" onclick="showAddModal()">➕ Nöbet Ekle</button>
         <button class="btn btn-secondary btn-sm" id="syncBtn" onclick="manualSync()" title="Veriyi GitHub'a kaydet">☁️ Sync</button>
         <button class="btn btn-primary btn-sm" onclick="triggerUpload('excel')">📊 Excel Yükle</button>
@@ -362,6 +363,15 @@ table.nt tr:last-child td { border-bottom:none; }
       <button id="todayBackBtn" onclick="todayGoToday()" style="display:none;margin-left:auto;font-size:11px;padding:3px 11px;border-radius:20px;background:linear-gradient(135deg,#39d98a,#2bb673);color:#04130c;border:none;font-weight:700;cursor:pointer">📍 Bugüne dön</button>
     </div>
     <div id="todayBody"></div>
+  </div></div>
+</div>
+
+<!-- DR SEÇ MODAL -->
+<div class="overlay" id="docSelectModal">
+  <div class="modal" style="max-width:460px"><div class="mp">
+    <div class="mt">👨‍⚕️ Doktor Seç <button class="mc" onclick="cm('docSelectModal')">✕</button></div>
+    <input id="docSelSearch" class="search-box" style="width:100%;margin-bottom:12px" placeholder="🔍 İsim ara..." oninput="renderDocSelect(this.value)">
+    <div id="docSelBody" style="max-height:60vh;overflow-y:auto"></div>
   </div></div>
 </div>
 
@@ -1337,6 +1347,13 @@ function getAll(){
   if(activeListType==='asistan') return lists.asistan||[];
   return [...(lists.uzman||[]),...(lists.asistan||[])];
 }
+// Aktif ayın tüm listeleri (alt filtreden bağımsız) — Dr Seç ve doktor modalı için
+function getMonthAll(){
+  if(!activeMonth||!months[activeMonth]) return [];
+  const m=months[activeMonth];
+  const lists=m.lists||{uzman:m.shifts||[],asistan:[]};
+  return [...(lists.uzman||[]),...(lists.asistan||[])];
+}
 function getListType(s){
   if(!activeMonth||!months[activeMonth]) return 'uzman';
   const m=months[activeMonth];
@@ -1486,9 +1503,56 @@ function rDocs(){
   document.getElementById('content').innerHTML=h;
 }
 
+// ── DR SEÇ MODAL ───────────────────────────────────────────────────
+function showDocSelect(){
+  if(!activeMonth||!months[activeMonth]){alert('Önce bir ay yükleyin.');return;}
+  const inp=document.getElementById('docSelSearch');
+  if(inp)inp.value='';
+  renderDocSelect('');
+  document.getElementById('docSelectModal').classList.add('open');
+}
+function renderDocSelect(q){
+  const m=months[activeMonth];
+  const lists=(m&&m.lists)||{uzman:(m&&m.shifts)||[],asistan:[]};
+  const uzSrc=lists.uzman||[], asSrc=lists.asistan||[];
+  const uzNames=[...new Set(uzSrc.map(s=>s.doctor))];
+  const asNames=[...new Set(asSrc.map(s=>s.doctor))];
+  const lastName=n=>normTR(n.trim().split(/\s+/).pop());
+  const byLast=(a,b)=>lastName(a).localeCompare(lastName(b),'tr');
+  const isGokhan=n=>normTR(n)==='GOKHAN AKSEL';
+  const query=normTR(q||'').trim();
+  const match=n=>!query||normTR(n).includes(query);
+  // Gökhan Aksel'i her zaman en başa sabitle
+  const gUz=uzNames.find(isGokhan), gAs=asNames.find(isGokhan);
+  const gokhan=gUz||gAs;
+  const gokhanLt=gUz?'uzman':'asistan';
+  const gokhanSrc=gUz?uzSrc:asSrc;
+  const uzSorted=uzNames.filter(n=>!isGokhan(n)).sort(byLast);
+  const asSorted=asNames.filter(n=>!isGokhan(n)).sort(byLast);
+  const row=(name,lt,src)=>{
+    const days=new Set(src.filter(s=>s.doctor===name).map(s=>s.date)).size;
+    const ini=name.split(' ').filter(Boolean).slice(0,2).map(x=>x[0]).join('');
+    const tColor=lt==='asistan'?'#5dd8ff':'#5de8a0';
+    const tLabel=lt==='asistan'?'Dr.':'Uzm. Dr.';
+    return `<div onclick="cm('docSelectModal');showDoc('${eq(name)}')" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;border:1px solid var(--border);background:var(--surface2);margin-bottom:6px;cursor:pointer;transition:border-color .15s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+      <div class="doc-av" style="width:34px;height:34px;margin:0;font-size:12px">${ini}</div>
+      <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600"><span style="font-size:10px;color:${tColor};font-weight:600">${tLabel}</span> ${fnPlain(name)}</div></div>
+      <span style="font-size:11px;color:var(--text-muted);font-family:'IBM Plex Mono',monospace;white-space:nowrap">${days} gün</span>
+    </div>`;
+  };
+  const hdr=t=>`<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin:12px 0 8px">${t}</div>`;
+  let h='';
+  if(gokhan&&match(gokhan)) h+=row(gokhan,gokhanLt,gokhanSrc);
+  const uzShow=uzSorted.filter(match), asShow=asSorted.filter(match);
+  if(uzShow.length){h+=hdr('Uzman Doktorlar');uzShow.forEach(n=>h+=row(n,'uzman',uzSrc));}
+  if(asShow.length){h+=hdr('Asistan / Pratisyen Doktorlar');asShow.forEach(n=>h+=row(n,'asistan',asSrc));}
+  if(!h)h='<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:13px">Sonuç bulunamadı</div>';
+  document.getElementById('docSelBody').innerHTML=h;
+}
+
 // ── DOCTOR MODAL ───────────────────────────────────────────────────
 function showDoc(name){
-  const shifts=getAll().filter(s=>s.doctor===name).sort((a,b)=>a.date.localeCompare(b.date));
+  const shifts=getMonthAll().filter(s=>s.doctor===name).sort((a,b)=>a.date.localeCompare(b.date));
   const ini=name.split(' ').filter(Boolean).slice(0,2).map(x=>x[0]).join('');
   const set24=build24hSet();
   const zc={};shifts.forEach(s=>{zc[s.zone]=(zc[s.zone]||0)+1;});
